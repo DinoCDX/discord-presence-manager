@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Images · DPM</title>
+<meta name="description" content="Show app icons and cover art.">
+<meta name="theme-color" content="#5865f2">
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="site"><div class="bar">
+<a class="brand" href="index.html"><img src="assets/favicon.png" alt="" width="32" height="32">DPM</a>
+<nav class="main"><a href="index.html">Home</a><a href="getting-started.html">Setup</a><a href="features.html">Features</a><a href="permissions.html">Permissions</a><a href="images.html" aria-current="page">Images</a><a href="troubleshooting.html">Troubleshooting</a><a href="build.html">Build</a></nav>
+</div></header>
+<main>
+
+<h1 class="page">Images</h1>
+<p class="sub">Discord doesn't accept pictures directly. DPM uploads each image once to a Discord application that you own and refers to it by ID.</p>
+
+<ol class="steps">
+<li>Open the <a href="https://discord.com/developers/applications">Discord developer portal</a> and create a <strong>New Application</strong>. The name doesn't matter.</li>
+<li>Copy the <strong>Application ID</strong> from the General Information page.</li>
+<li>In DPM, open Settings, then Images, and paste the ID.</li>
+<li>Tap <strong>Check</strong>. The status should say Connected.</li>
+<li>Make sure <strong>Send images</strong> is on.</li>
+</ol>
+
+<p>DPM sends the app icon, or the cover art with the app icon as a small badge. The activity line still reads like "Listening to" followed by the app name.</p>
+<p>Without an application ID Discord shows text only, and the preview says so.</p>
+
+</main>
+<footer class="site"><div class="bar">
+<span>DPM, Discord Presence Manager. Not affiliated with Discord.</span>
+<a href="https://github.com/DinoCDX/discord-presence-manager">Source on GitHub</a>
+</div></footer>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build · DPM</title>
+<meta name="description" content="Build DPM and publish releases.">
+<meta name="theme-color" content="#5865f2">
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="site"><div class="bar">
+<a class="brand" href="index.html"><img src="assets/favicon.png" alt="" width="32" height="32">DPM</a>
+<nav class="main"><a href="index.html">Home</a><a href="getting-started.html">Setup</a><a href="features.html">Features</a><a href="permissions.html">Permissions</a><a href="images.html">Images</a><a href="troubleshooting.html">Troubleshooting</a><a href="build.html" aria-current="page">Build</a></nav>
+</div></header>
+<main>
+
+<h1 class="page">Build</h1>
+
+<h2>Requirements</h2>
+<ul>
+<li>JDK 17</li>
+<li>Android SDK platform 34</li>
+<li>Android Studio, or just the command line tools</li>
+</ul>
+
+<h2>Debug build</h2>
+<pre><code>git clone https://github.com/DinoCDX/discord-presence-manager.git
+cd discord-presence-manager
+./gradlew assembleDebug</code></pre>
+<p>The APK ends up in <code>app/build/outputs/apk/debug/app-debug.apk</code>.</p>
+
+<h2>Releases</h2>
+<p>Pushing a tag that starts with <code>v</code> runs the release workflow in <code>.github/workflows/release.yml</code>. It builds a signed APK and attaches it to a new GitHub release. The in-app updater reads that release.</p>
+<p>Android only installs an update over an existing app if both are signed with the same key. Create one key and keep it:</p>
+<pre><code>keytool -genkeypair -v -keystore dpm-release.jks -alias dpm \
+  -keyalg RSA -keysize 4096 -validity 10000
+base64 -w0 dpm-release.jks</code></pre>
+<p>Add these repository secrets under Settings, Secrets and variables, Actions:</p>
+<table>
+<tr><th>Secret</th><th>Value</th></tr>
+<tr><td><code>KEYSTORE_BASE64</code></td><td>Output of the base64 command</td></tr>
+<tr><td><code>KEYSTORE_PASSWORD</code></td><td>The keystore password</td></tr>
+<tr><td><code>KEY_ALIAS</code></td><td><code>dpm</code></td></tr>
+<tr><td><code>KEY_PASSWORD</code></td><td>The key password</td></tr>
+</table>
+<p>Then tag and push:</p>
+<pre><code>git tag v1.0.0
+git push origin v1.0.0</code></pre>
+<p>The tag sets the version. <code>v1.2.3</code> becomes version name 1.2.3 and version code 10203. Back up the keystore somewhere safe. If you lose it, nobody can update in place any more.</p>
+
+<h2>Publishing these docs</h2>
+<p>In the repository settings open Pages, choose Deploy from a branch, then pick your main branch and the <code>/docs</code> folder.</p>
+
+</main>
+<footer class="site"><div class="bar">
+<span>DPM, Discord Presence Manager. Not affiliated with Discord.</span>
+<a href="https://github.com/DinoCDX/discord-presence-manager">Source on GitHub</a>
+</div></footer>
+</body>
+</html>
