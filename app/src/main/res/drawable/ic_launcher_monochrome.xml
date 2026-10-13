@@ -5,9 +5,12 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:fillColor="#FF000000"
-        android:fillType="evenOdd"
-        android:pathData="M35,32H51A22,22 0 0 1 51,76H35Z M43,40H51A14,14 0 0 1 51,68H43Z" />
+        android:fillColor="#00000000"
+        android:pathData="M39,36H51A18,18 0 0 1 51,72H39Z"
+        android:strokeColor="#FF000000"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="11" />
     <path
         android:fillColor="#FF000000"
         android:pathData="M54,54m-5.5,0a5.5,5.5 0 1,0 11,0a5.5,5.5 0 1,0 -11,0" />

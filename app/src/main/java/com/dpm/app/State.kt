@@ -22,9 +22,27 @@ class UiState(private val c: Context) {
     var sName by mutableStateOf("")
     var sDetails by mutableStateOf("")
     var sState by mutableStateOf("")
-    var sTimer by mutableStateOf(false)
+    var sTimerMode by mutableStateOf("off")
         private set
     var sStarted by mutableLongStateOf(0L)
+        private set
+    var sEnd by mutableLongStateOf(0L)
+        private set
+    var sDur by mutableIntStateOf(60)
+        private set
+    var sLarge by mutableStateOf("")
+        private set
+    var sSmall by mutableStateOf("")
+        private set
+    var sB1L by mutableStateOf("")
+    var sB1U by mutableStateOf("")
+    var sB2L by mutableStateOf("")
+    var sB2U by mutableStateOf("")
+    var presets by mutableStateOf(listOf<Preset>())
+        private set
+    @set:JvmName("assignBtnVideo") var btnVideo by mutableStateOf(true)
+        private set
+    @set:JvmName("assignBtnRepo") var btnRepo by mutableStateOf(true)
         private set
     var savedAt by mutableLongStateOf(0L)
         private set
@@ -47,6 +65,11 @@ class UiState(private val c: Context) {
     @set:JvmName("assignWindows") var windows by mutableStateOf(listOf<Win>())
         private set
 
+    var srcOrder by mutableStateOf(Sources.all)
+        private set
+    var srcOn by mutableStateOf(mapOf<String, Boolean>())
+        private set
+
     var showApps by mutableStateOf(setOf<String>())
     var ignoreApps by mutableStateOf(setOf<String>())
     var customs by mutableStateOf(mapOf<String, Custom>())
@@ -65,8 +88,17 @@ class UiState(private val c: Context) {
         sName = Store.get(c, "s_name", "")
         sDetails = Store.get(c, "s_details", "")
         sState = Store.get(c, "s_state", "")
-        sTimer = flag("s_timer", false)
+        sTimerMode = Store.get(c, "s_tmode", if (flag("s_timer", false)) "up" else "off")
         sStarted = Store.get(c, "s_started", "0").toLongOrNull() ?: 0L
+        sEnd = Store.get(c, "s_end", "0").toLongOrNull() ?: 0L
+        sDur = Store.get(c, "s_dur", "60").toIntOrNull() ?: 60
+        sLarge = Store.get(c, "s_large", "")
+        sSmall = Store.get(c, "s_small", "")
+        sB1L = Store.get(c, "s_b1l", "")
+        sB1U = Store.get(c, "s_b1u", "")
+        sB2L = Store.get(c, "s_b2l", "")
+        sB2U = Store.get(c, "s_b2u", "")
+        presets = Presets.all(c)
     }
 
     private fun flag(k: String, d: Boolean) = Store.get(c, k, if (d) "1" else "0") == "1"
@@ -87,17 +119,22 @@ class UiState(private val c: Context) {
         appId = Store.get(c, "app_id", "")
         schedOn = Schedule.on(c)
         windows = Schedule.windows(c)
+        srcOrder = Sources.order(c)
+        srcOn = Sources.all.associateWith { Sources.enabled(c, it) }
         showApps = Store.pkgs(c, "show_apps")
         ignoreApps = Store.pkgs(c, "ignore_apps")
         customs = Customs.all(c)
         themeMode = Store.get(c, "theme", "system")
-        dyn = flag("dyn", true)
+        dyn = false
         onboarded = flag("onboarded", false)
+        btnVideo = flag("btn_video", true)
+        btnRepo = flag("btn_repo", true)
     }
 
     fun setRunning(on: Boolean) {
         running = on
         Presence.setRunning(c, on)
+        Toggle.refresh(c)
         if (on) {
             if (paused) setPaused(false)
             PresenceService.ensure(c)
@@ -118,16 +155,32 @@ class UiState(private val c: Context) {
         PresenceService.kick()
     }
 
+    private fun staticValues(): Map<String, String> = mapOf(
+        "s_type" to sType.toString(),
+        "s_name" to sName,
+        "s_details" to sDetails,
+        "s_state" to sState,
+        "s_tmode" to sTimerMode,
+        "s_started" to sStarted.toString(),
+        "s_end" to sEnd.toString(),
+        "s_dur" to sDur.toString(),
+        "s_large" to sLarge,
+        "s_small" to sSmall,
+        "s_b1l" to sB1L.trim(),
+        "s_b1u" to sB1U.trim(),
+        "s_b2l" to sB2L.trim(),
+        "s_b2u" to sB2U.trim()
+    )
+
     fun saveStatic() {
-        val unchanged = Store.get(c, "s_type", "0") == sType.toString() &&
-            Store.get(c, "s_name", "") == sName &&
-            Store.get(c, "s_details", "") == sDetails &&
-            Store.get(c, "s_state", "") == sState
-        if (unchanged) return
-        Store.put(c, "s_type", sType.toString())
-        Store.put(c, "s_name", sName)
-        Store.put(c, "s_details", sDetails)
-        Store.put(c, "s_state", sState)
+        var changed = false
+        staticValues().forEach { (k, v) ->
+            if (Store.get(c, k, if (k == "s_dur") "60" else if (k == "s_tmode") "off" else if (k == "s_started" || k == "s_end") "0" else if (k == "s_type") "0" else "") != v) {
+                Store.put(c, k, v)
+                changed = true
+            }
+        }
+        if (!changed) return
         markSaved()
         PresenceService.kick()
     }
@@ -139,32 +192,126 @@ class UiState(private val c: Context) {
         saveStatic()
     }
 
-    fun setTimer(v: Boolean) {
-        sTimer = v
-        put("s_timer", v)
-        if (v) {
-            sStarted = System.currentTimeMillis()
-            Store.put(c, "s_started", sStarted.toString())
-        }
-        markSaved()
-        PresenceService.kick()
+    fun setTimerMode(m: String) {
+        sTimerMode = m
+        if (m == "up" && sStarted <= 0L) sStarted = System.currentTimeMillis()
+        saveStatic()
+    }
+
+    fun resetElapsed() {
+        sStarted = System.currentTimeMillis()
+        saveStatic()
+    }
+
+    /** Sets the elapsed timer to have started today at the given time (yesterday if that is still ahead). */
+    fun setStartedAt(hour: Int, minute: Int) {
+        val cal = java.util.Calendar.getInstance()
+        cal.set(java.util.Calendar.HOUR_OF_DAY, hour)
+        cal.set(java.util.Calendar.MINUTE, minute)
+        cal.set(java.util.Calendar.SECOND, 0)
+        var t = cal.timeInMillis
+        if (t > System.currentTimeMillis()) t -= 24L * 60 * 60 * 1000
+        sStarted = t
+        saveStatic()
+    }
+
+    fun setDuration(min: Int) {
+        sDur = min.coerceIn(1, 24 * 60)
+        saveStatic()
+    }
+
+    fun startCountdown() {
+        sEnd = System.currentTimeMillis() + sDur * 60_000L
+        sTimerMode = "down"
+        saveStatic()
+    }
+
+    fun setImage(large: Boolean, name: String) {
+        val old = if (large) sLarge else sSmall
+        if (large) sLarge = name else sSmall = name
+        saveStatic()
+        if (old != name) StaticFiles.prune(c, old)
+    }
+
+    fun savePreset(label: String) {
+        val p = Preset(
+            System.currentTimeMillis().toString(), label.trim().ifEmpty { sName.ifEmpty { "Preset" } },
+            sType, sName, sDetails, sState, sTimerMode, sDur, sLarge, sSmall, sB1L, sB1U, sB2L, sB2U
+        )
+        presets = presets + p
+        Presets.save(c, presets)
+    }
+
+    fun applyPreset(p: Preset) {
+        sType = p.type
+        sName = p.name
+        sDetails = p.details
+        sState = p.state
+        sDur = p.durMin
+        sLarge = p.large
+        sSmall = p.small
+        sB1L = p.b1l
+        sB1U = p.b1u
+        sB2L = p.b2l
+        sB2U = p.b2u
+        sTimerMode = p.timerMode
+        val now = System.currentTimeMillis()
+        if (p.timerMode == "up") sStarted = now
+        if (p.timerMode == "down") sEnd = now + p.durMin * 60_000L
+        saveStatic()
+    }
+
+    fun deletePreset(p: Preset) {
+        presets = presets.filter { it.id != p.id }
+        Presets.save(c, presets)
+        StaticFiles.prune(c, p.large)
+        StaticFiles.prune(c, p.small)
     }
 
     fun staticPreview(): Info? {
         val n = sName.trim()
         if (n.isEmpty()) return null
+        val now = System.currentTimeMillis()
+        val btns = listOf(sB1L.trim() to sB1U.trim(), sB2L.trim() to sB2U.trim())
+            .filter { it.first.isNotEmpty() && it.second.startsWith("http") }
         return Info(
             type = sType,
             name = n,
             details = sDetails.trim().ifEmpty { null },
             state = sState.trim().ifEmpty { null },
-            start = if (sTimer && sStarted > 0L) sStarted else null
+            start = if (sTimerMode == "up" && sStarted > 0L) sStarted else null,
+            end = if (sTimerMode == "down" && sEnd > now) sEnd else null,
+            buttons = btns,
+            largeFile = sLarge.ifEmpty { null },
+            smallFile = sSmall.ifEmpty { null }
         )
     }
 
     private fun markSaved() {
         savedAt = System.currentTimeMillis()
     }
+
+    fun setSourceOn(k: String, on: Boolean) {
+        srcOn = srcOn + (k to on)
+        Sources.setEnabled(c, k, on)
+        PresenceService.kick()
+    }
+
+    /** Move a source up (-1) or down (+1) in the priority list. */
+    fun moveSource(k: String, by: Int) {
+        val list = srcOrder.toMutableList()
+        val i = list.indexOf(k)
+        val j = i + by
+        if (i < 0 || j !in list.indices) return
+        list.removeAt(i)
+        list.add(j, k)
+        srcOrder = list
+        Sources.setOrder(c, list)
+        PresenceService.kick()
+    }
+
+    fun setBtnVideo(v: Boolean) { btnVideo = v; put("btn_video", v); PresenceService.kick() }
+    fun setBtnRepo(v: Boolean) { btnRepo = v; put("btn_repo", v); PresenceService.kick() }
 
     fun setAutoApps(v: Boolean) { autoApps = v; put("auto_apps", v); PresenceService.kick() }
     fun setAllApps(v: Boolean) { allApps = v; put("all_apps", v); PresenceService.kick() }
@@ -221,6 +368,6 @@ class UiState(private val c: Context) {
     }
 
     fun setTheme(v: String) { themeMode = v; Store.put(c, "theme", v) }
-    fun setDyn(v: Boolean) { dyn = v; put("dyn", v) }
+    fun setDyn(v: Boolean) { dyn = false }
     fun setOnboarded(v: Boolean) { onboarded = v; put("onboarded", v) }
 }

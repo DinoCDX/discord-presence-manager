@@ -6,11 +6,16 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.os.PersistableBundle
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.ime
@@ -19,25 +24,32 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.Text
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
     private lateinit var ui: UiState
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,7 +64,7 @@ class MainActivity : AppCompatActivity() {
         Updater.autoCheck(applicationContext)
 
         setContent {
-            DPMTheme(ui.themeMode, ui.dyn) {
+            DPMTheme(ui.themeMode, false) {
                 val lifecycle = LocalLifecycleOwner.current.lifecycle
                 DisposableEffect(lifecycle) {
                     val obs = LifecycleEventObserver { _, e ->
@@ -75,44 +87,83 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    @androidx.compose.runtime.Composable
+    @Composable
     private fun Home() {
-        var tab by rememberSaveable { mutableIntStateOf(0) }
+        val pager = rememberPagerState(pageCount = { 3 })
+        val scope = rememberCoroutineScope()
+        val tab = pager.currentPage
+        fun goTo(i: Int) { scope.launch { pager.animateScrollToPage(i) } }
         val appsList = rememberLazyListState()
         val presenceScroll = rememberScrollState()
         val settingsScroll = rememberScrollState()
+        val titles = listOf("Presence", "Apps", "Settings")
         val imeOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+
+        var conn by remember { mutableStateOf(GatewayClient.state) }
+        DisposableEffect(Unit) {
+            GatewayClient.onState = { conn = it }
+            onDispose { GatewayClient.onState = null }
+        }
+
+        val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+        val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+
         Scaffold(
+            topBar = {
+                Column(Modifier.statusBarsPadding().padding(start = 20.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)) {
+                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            titles[tab],
+                            style = MaterialTheme.typography.headlineMediumEmphasized,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (tab == 0) {
+                            val up = conn.startsWith("Connected")
+                            StatusPill(up, if (up) "Connected" else conn)
+                        }
+                    }
+                    if (tab == 1) {
+                        Text(
+                            "Choose what Discord can show",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
             bottomBar = {
                 AnimatedVisibility(visible = !imeOpen) {
-                    NavigationBar {
+                    ShortNavigationBar {
                         val items = listOf(
                             "Presence" to R.drawable.ic_presence,
                             "Apps" to R.drawable.ic_apps,
                             "Settings" to R.drawable.ic_settings
                         )
                         items.forEachIndexed { i, (label, icon) ->
-                            NavigationBarItem(
+                            ShortNavigationBarItem(
                                 selected = tab == i,
-                                onClick = { tab = i },
+                                onClick = { goTo(i) },
                                 icon = { Icon(painterResource(icon), null) },
-                                label = { Text(label) }
+                                label = if (tab == i) ({ Text(label) }) else null
                             )
                         }
                     }
                 }
             }
         ) { pad ->
-            Crossfade(tab, modifier = Modifier.padding(pad).consumeWindowInsets(pad).imePadding(), label = "tab") { t ->
+            HorizontalPager(
+                state = pager,
+                modifier = Modifier.padding(pad).consumeWindowInsets(pad).imePadding(),
+                beyondViewportPageCount = 0
+            ) { t ->
                 when (t) {
-                    0 -> PresenceScreen(ui, openApps = { tab = 1 }, scroll = presenceScroll)
+                    0 -> PresenceScreen(ui, openApps = { goTo(1) }, scroll = presenceScroll)
                     1 -> AppsScreen(ui, appsList)
                     else -> SettingsScreen(
                         ui,
                         onSwitch = { switchTo(it) },
                         onRemove = { removeAccount(it) },
-                        onAddBrowser = { go(Intent(this, WebLoginActivity::class.java)) },
-                        onAddOther = { go(Intent(this, LoginActivity::class.java).putExtra("add", true)) },
+                        onAdd = { go(Intent(this@MainActivity, LoginActivity::class.java).putExtra("add", true)) },
                         onCopyToken = { copyToken(it) },
                         onReplayIntro = { ui.setOnboarded(false) },
                         scroll = settingsScroll

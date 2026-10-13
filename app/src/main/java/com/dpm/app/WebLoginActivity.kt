@@ -5,27 +5,46 @@ import android.graphics.Bitmap
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.View
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.LinearLayout
+import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.appbar.MaterialToolbar
-import com.google.android.material.progressindicator.LinearProgressIndicator
 import kotlinx.coroutines.launch
 import org.json.JSONTokener
 
-class WebLoginActivity : AppCompatActivity() {
+class WebLoginActivity : ComponentActivity() {
     private lateinit var web: WebView
     private val handler = Handler(Looper.getMainLooper())
     private var busy = false
     private var closed = false
+    private var loadProgress by mutableIntStateOf(0)
 
     private val grab = """
         (function(){
@@ -67,17 +86,8 @@ class WebLoginActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-
-        val bar = MaterialToolbar(this).apply {
-            title = "Log in to Discord"
-            setNavigationIcon(R.drawable.ic_back)
-            setNavigationOnClickListener { onBackPressedDispatcher.onBackPressed() }
-        }
-        val progress = LinearProgressIndicator(this).apply {
-            max = 100
-            visibility = View.GONE
-        }
 
         CookieManager.getInstance().removeAllCookies(null)
         WebStorage.getInstance().deleteAllData()
@@ -92,8 +102,7 @@ class WebLoginActivity : AppCompatActivity() {
             CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
             webChromeClient = object : WebChromeClient() {
                 override fun onProgressChanged(view: WebView, newProgress: Int) {
-                    progress.visibility = if (newProgress in 1..99) View.VISIBLE else View.GONE
-                    progress.progress = newProgress
+                    loadProgress = newProgress
                 }
             }
             webViewClient = object : WebViewClient() {
@@ -103,12 +112,6 @@ class WebLoginActivity : AppCompatActivity() {
                 }
             }
         }
-
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(bar, LinearLayout.LayoutParams(MATCH, WRAP))
-        root.addView(progress, LinearLayout.LayoutParams(MATCH, WRAP))
-        root.addView(web, LinearLayout.LayoutParams(MATCH, 0, 1f))
-        setContentView(root)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -121,7 +124,41 @@ class WebLoginActivity : AppCompatActivity() {
             }
         })
 
+        val themeMode = Store.get(this, "theme", "system")
+        val dyn = Store.get(this, "dyn", "1") == "1"
+        setContent {
+            DPMTheme(themeMode, dyn) {
+                Screen()
+            }
+        }
+
         web.loadUrl("https://discord.com/login")
+    }
+
+    @Composable
+    private fun Screen() {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Log in to Discord") },
+                    navigationIcon = {
+                        IconButton(onClick = { onBackPressedDispatcher.onBackPressed() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        }
+                    }
+                )
+            }
+        ) { pad ->
+            Column(Modifier.padding(pad).consumeWindowInsets(pad).imePadding()) {
+                AnimatedVisibility(visible = loadProgress in 1..99) {
+                    LinearWavyProgressIndicator(
+                        progress = { loadProgress / 100f },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                AndroidView(factory = { web }, modifier = Modifier.weight(1f).fillMaxWidth())
+            }
+        }
     }
 
     override fun onDestroy() {

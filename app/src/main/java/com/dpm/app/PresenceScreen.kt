@@ -6,12 +6,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,27 +18,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimeInput
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -55,9 +48,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -73,14 +66,11 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
     val ctx = LocalContext.current
     val cs = MaterialTheme.colorScheme
 
-    var conn by remember { mutableStateOf(GatewayClient.state) }
-    DisposableEffect(Unit) {
-        GatewayClient.onState = { conn = it }
-        onDispose { GatewayClient.onState = null }
-    }
-
     var preview by remember { mutableStateOf<Info?>(null) }
     var gate by remember { mutableStateOf<String?>(null) }
+    var found by remember { mutableStateOf<Map<String, Info?>>(emptyMap()) }
+    var winner by remember { mutableStateOf<String?>(null) }
+    var rejected by remember { mutableStateOf(false) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(lifecycle) {
@@ -88,6 +78,9 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
             while (isActive) {
                 val p = withContext(Dispatchers.IO) { Logic.info(ctx) }
                 preview = p
+                found = Dynamic.found
+                winner = Dynamic.winner
+                rejected = GatewayClient.tokenRejected
                 gate = Logic.gate(ctx)
                 now = System.currentTimeMillis()
                 delay(1000)
@@ -95,7 +88,7 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
         }
     }
 
-    LaunchedEffect(ui.sType, ui.sName, ui.sDetails, ui.sState) {
+    LaunchedEffect(ui.sType, ui.sName, ui.sDetails, ui.sState, ui.sB1L, ui.sB1U, ui.sB2L, ui.sB2U) {
         delay(400)
         ui.saveStatic()
     }
@@ -106,16 +99,16 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
 
     val notifOk = remember(ui.permTick) { Perms.notifications(ctx) }
     var askedTick by remember { mutableIntStateOf(0) }
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { askedTick++ }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        askedTick++
+        if (!granted && ctx.activity().notificationsBlockedForGood()) ctx.openNotificationSettings()
+    }
     val notifGranted = notifOk || askedTick > 0 && Perms.notifications(ctx)
 
     Column(
         Modifier.verticalScroll(scroll).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Gap14
     ) {
-        val up = conn.startsWith("Connected")
-        ScreenHeader("Presence", trailing = { StatusPill(up, if (up) "Connected" else conn) })
-
         if (!notifGranted && Build.VERSION.SDK_INT >= 33) {
             Banner(
                 "Notifications are off",
@@ -124,33 +117,55 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
             ) { launcher.launch(Manifest.permission.POST_NOTIFICATIONS) }
         }
 
+        if (rejected) {
+            Banner(
+                "Discord signed you out",
+                "Your login is no longer valid, so nothing can be shown. Log in again to continue.",
+                "Log in again"
+            ) {
+                ctx.startActivity(
+                    android.content.Intent(ctx, LoginActivity::class.java).putExtra("add", true)
+                )
+            }
+        }
+
+        var dismissedTag by remember { mutableStateOf(Store.get(ctx, "upd_dismissed", "")) }
         when (val u = Updater.state) {
-            is UpdateState.Available -> Banner(
+            is UpdateState.Available -> if (dismissedTag != u.tag) Banner(
                 "Update ${u.tag}",
                 "A new version of DPM is available.",
-                "Download"
+                "Download",
+                onDismiss = {
+                    Store.put(ctx, "upd_dismissed", u.tag)
+                    dismissedTag = u.tag
+                }
             ) { Updater.download(ctx) }
-            is UpdateState.Ready -> Banner(
+            is UpdateState.Ready -> if (dismissedTag != u.tag) Banner(
                 "Update ${u.tag} is ready",
                 "It has been downloaded and checked.",
-                "Install"
+                "Install",
+                onDismiss = {
+                    Store.put(ctx, "upd_dismissed", u.tag)
+                    dismissedTag = u.tag
+                }
             ) { ctx.activity()?.let { Updater.install(it) } }
             else -> {}
         }
 
         val liveNow = ui.running && gate == null && live != null
-        val heroBg by animateColorAsState(if (liveNow) cs.primaryContainer else cs.surfaceContainer, label = "heroBg")
-        val heroTitle by animateColorAsState(if (liveNow) cs.onPrimaryContainer else cs.onSurface, label = "heroTitle")
-        val heroSub by animateColorAsState(if (liveNow) cs.onPrimaryContainer else cs.onSurfaceVariant, label = "heroSub")
+        val fade = MaterialTheme.motionScheme.defaultEffectsSpec<Color>()
+        val heroBg by animateColorAsState(if (liveNow) cs.primaryContainer else cs.surfaceContainer, fade, label = "heroBg")
+        val heroTitle by animateColorAsState(if (liveNow) cs.onPrimaryContainer else cs.onSurface, fade, label = "heroTitle")
+        val heroSub by animateColorAsState(if (liveNow) cs.onPrimaryContainer else cs.onSurfaceVariant, fade, label = "heroSub")
         Card(
-            modifier = Modifier.fillMaxWidth().animateContentSize(),
-            shape = RoundedCornerShape(28.dp),
+            modifier = Modifier.fillMaxWidth().spatialSize(),
+            shape = MaterialTheme.shapes.extraLargeIncreased,
             colors = CardDefaults.cardColors(containerColor = heroBg)
         ) {
-            Column(Modifier.padding(20.dp)) {
+            Column(Modifier.padding(24.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Share my presence", style = MaterialTheme.typography.titleLarge, color = heroTitle)
+                        Text("Share my presence", style = MaterialTheme.typography.titleLargeEmphasized, color = heroTitle)
                         Text(
                             when {
                                 !ui.running -> "Off"
@@ -162,10 +177,18 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
                             color = heroSub
                         )
                     }
-                    Switch(checked = ui.running, onCheckedChange = { ui.setRunning(it) })
+                    Switch(
+                        checked = ui.running,
+                        onCheckedChange = { ui.setRunning(it) },
+                        thumbContent = if (ui.running) {
+                            { Icon(Icons.Default.Check, null, Modifier.size(SwitchDefaults.IconSize)) }
+                        } else {
+                            null
+                        }
+                    )
                 }
                 AnimatedVisibility(ui.running) {
-                    FilledTonalButton(
+                    ExpTonalButton(
                         onClick = { ui.setPaused(!ui.paused) },
                         modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
                     ) { Text(if (ui.paused) "Resume" else "Pause") }
@@ -183,7 +206,7 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
             )
         }
 
-        SectionCard("Source", Modifier.animateContentSize()) {
+        SectionCard("Source", Modifier.spatialSize()) {
             Segmented(listOf("Dynamic", "Static"), if (ui.mode == "dynamic") 0 else 1, {
                 ui.setMode(if (it == 0) "dynamic" else "static")
             })
@@ -192,17 +215,20 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
                 StaticEditor(ui, now)
             } else {
                 Text(
-                    "Follows what you are doing: music and video that is playing, then the app on screen. " +
-                        "Choose which apps count, or give them custom text, in the Apps tab.",
+                    "Follows what you are doing. Pick apps in the Apps tab.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = cs.onSurfaceVariant
                 )
                 ToggleRow("Show images", "App icon and cover art", ui.images) { ui.setImages(it) }
-                OutlinedButton(onClick = openApps, modifier = Modifier.fillMaxWidth()) { Text("Manage apps") }
+                ExpOutlinedButton(onClick = openApps, modifier = Modifier.fillMaxWidth()) { Text("Manage apps") }
             }
         }
 
-        SectionCard("Schedule", Modifier.animateContentSize()) {
+        if (ui.mode == "dynamic") {
+            SourcesCard(ui, found, winner, live = ui.running && gate == null)
+        }
+
+        SectionCard("Schedule", Modifier.spatialSize()) {
             ToggleRow(
                 "Only share at set times",
                 if (ui.schedOn) "Outside these times nothing is shown" else "Presence is shared whenever it is on",
@@ -236,7 +262,7 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
                             }
                         }
                     }
-                    TextButton(onClick = { adding = true }) {
+                    ExpTextButton(onClick = { adding = true }) {
                         Icon(Icons.Default.Add, null)
                         Spacer(Modifier.width(8.dp))
                         Text("Add time window")
@@ -282,7 +308,7 @@ private fun WindowDialog(initial: Win?, onDismiss: () -> Unit, onSave: (Win) -> 
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(
-            shape = RoundedCornerShape(28.dp),
+            shape = MaterialTheme.shapes.extraLargeIncreased,
             tonalElevation = 6.dp,
             modifier = Modifier.padding(16.dp).fillMaxWidth()
         ) {
@@ -316,9 +342,9 @@ private fun WindowDialog(initial: Win?, onDismiss: () -> Unit, onSave: (Win) -> 
                 )
                 Spacer(Modifier.height(16.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    ExpTextButton(onClick = onDismiss) { Text("Cancel") }
                     Spacer(Modifier.width(8.dp))
-                    Button(
+                    ExpButton(
                         enabled = days != 0,
                         onClick = {
                             onSave(Win(days, startState.hour * 60 + startState.minute, endState.hour * 60 + endState.minute))

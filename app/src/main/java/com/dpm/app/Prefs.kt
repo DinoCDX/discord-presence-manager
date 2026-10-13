@@ -107,6 +107,36 @@ object Schedule {
 
 class Custom(val type: Int, val name: String?, val details: String?, val state: String?)
 
+object Sources {
+    const val MUSIC = "music"
+    const val GAME = "game"
+    const val APP = "app"
+    val all = listOf(MUSIC, GAME, APP)
+
+    fun label(k: String) = when (k) {
+        MUSIC -> "Music and video"
+        GAME -> "Games"
+        else -> "Other apps"
+    }
+
+    fun hint(k: String) = when (k) {
+        MUSIC -> "Whatever is playing right now"
+        GAME -> "The game on your screen"
+        else -> "Other apps you allowed in the Apps tab"
+    }
+
+    fun order(c: Context): List<String> {
+        val saved = Store.get(c, "src_order", "").split(",").filter { it in all }.distinct()
+        return saved + all.filter { it !in saved }
+    }
+
+    fun setOrder(c: Context, list: List<String>) = Store.put(c, "src_order", list.joinToString(","))
+
+    fun enabled(c: Context, k: String): Boolean = Store.get(c, "src_$k", "1") == "1"
+
+    fun setEnabled(c: Context, k: String, on: Boolean) = Store.put(c, "src_$k", if (on) "1" else "0")
+}
+
 object Customs {
     private var memoRaw: String? = null
     private var memo: Map<String, Custom> = emptyMap()

@@ -9,14 +9,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,18 +43,18 @@ fun PresenceCard(info: Info?, now: Long, empty: String, imagesOn: Boolean, hasAp
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
             "${Presence.verb(info.type)} ${info.name}",
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.labelLargeEmphasized,
             color = cs.onSurfaceVariant
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (imagesOn && info.pkg != null) {
-                ArtBox(info)
+            if (imagesOn && (info.pkg != null || info.largeFile != null || info.smallFile != null)) {
+                if (info.pkg != null) ArtBox(info) else StaticArtBox(info)
                 Spacer(Modifier.width(18.dp))
             }
             Column(Modifier.weight(1f)) {
                 Text(
                     info.details ?: info.name,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleMediumEmphasized,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -77,28 +77,79 @@ fun PresenceCard(info: Info?, now: Long, empty: String, imagesOn: Boolean, hasAp
         val e = info.end
         if (s != null && e != null && e > s) {
             val done = (now - s).coerceIn(0L, e - s)
-            Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(cs.surfaceVariant)) {
-                Box(
-                    Modifier
-                        .fillMaxWidth((done.toFloat() / (e - s)).coerceIn(0f, 1f))
-                        .fillMaxHeight()
-                        .clip(CircleShape)
-                        .background(cs.primary)
-                )
-            }
+            LinearWavyProgressIndicator(
+                progress = { (done.toFloat() / (e - s)).coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth()
+            )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(clock(done), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                 Text(clock(e - s), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
             }
         } else if (s != null) {
             Text("${clock(now - s)} elapsed", style = MaterialTheme.typography.labelLarge, color = cs.primary)
+        } else if (e != null && e > now) {
+            Text("${clock(e - now)} left", style = MaterialTheme.typography.labelLarge, color = cs.primary)
         }
 
-        if (imagesOn && info.pkg != null && !hasAppId) {
+        if (info.buttons.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                info.buttons.forEach { (label, _) ->
+                    Box(
+                        Modifier.weight(1f).clip(MaterialTheme.shapes.medium)
+                            .background(cs.surfaceContainerHighest).padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+
+        if (imagesOn && (info.pkg != null || info.largeFile != null || info.smallFile != null) && !hasAppId) {
             Text(
                 "Discord shows text only. Add an application ID in Settings to send images.",
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun StaticArtBox(info: Info) {
+    val ctx = LocalContext.current
+    val big by produceState<Bitmap?>(null, info.largeFile) {
+        value = withContext(Dispatchers.IO) {
+            StaticFiles.file(ctx, info.largeFile.orEmpty())?.let { android.graphics.BitmapFactory.decodeFile(it.path) }
+        }
+    }
+    val small by produceState<Bitmap?>(null, info.smallFile) {
+        value = withContext(Dispatchers.IO) {
+            StaticFiles.file(ctx, info.smallFile.orEmpty())?.let { android.graphics.BitmapFactory.decodeFile(it.path) }
+        }
+    }
+    val main = big ?: small
+    val badge = if (big != null) small else null
+    Box(Modifier.size(80.dp)) {
+        if (main != null) {
+            Image(
+                bitmap = main.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(80.dp).clip(RoundedCornerShape(24.dp))
+            )
+        }
+        if (badge != null) {
+            Image(
+                bitmap = badge.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(6.dp, 6.dp)
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .border(2.dp, MaterialTheme.colorScheme.surfaceContainer, CircleShape)
             )
         }
     }
@@ -120,7 +171,7 @@ private fun ArtBox(info: Info) {
                 bitmap = big.asImageBitmap(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.size(80.dp).clip(RoundedCornerShape(16.dp))
+                modifier = Modifier.size(80.dp).clip(RoundedCornerShape(24.dp))
             )
         }
         if (small != null) {

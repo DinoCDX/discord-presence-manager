@@ -81,6 +81,7 @@ class PresenceService : Service() {
             ACTION_STOP -> {
                 Presence.setRunning(this, false)
                 Bus.bump()
+                Toggle.refresh(this)
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return START_NOT_STICKY
@@ -136,6 +137,7 @@ class PresenceService : Service() {
         val key = "$gate|${info?.type}|${info?.name}|${info?.details}|${info?.state}|${info?.pkg}|${info?.bitmap != null}"
         if (key != notifKey) {
             notifKey = key
+            Toggle.refresh(this)
             val n = buildNotification(info, gate, if (gate == null) info else null)
             getSystemService(NotificationManager::class.java).notify(1, n)
         }

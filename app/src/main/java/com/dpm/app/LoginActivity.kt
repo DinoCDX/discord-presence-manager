@@ -1,16 +1,18 @@
 package com.dpm.app
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Bundle
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,18 +21,23 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -45,45 +52,46 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
-import kotlinx.coroutines.Dispatchers
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
-class LoginActivity : AppCompatActivity() {
+class LoginActivity : ComponentActivity() {
+    private var adding = false
+
+    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        val adding = intent.getBooleanExtra("add", false)
+        adding = intent.getBooleanExtra("add", false)
         if (!adding && Store.token(this) != null) {
             go(Intent(this, MainActivity::class.java))
             finish()
             return
         }
+
         val themeMode = Store.get(this, "theme", "system")
-        val dyn = Store.get(this, "dyn", "1") == "1"
+        val dyn = false
         setContent {
             DPMTheme(themeMode, dyn) {
-                LoginScreen(adding)
+                LoginScreen()
             }
         }
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
-    private fun LoginScreen(adding: Boolean) {
+    private fun LoginScreen() {
         val cs = MaterialTheme.colorScheme
         val scope = rememberCoroutineScope()
         var tab by remember { mutableIntStateOf(0) }
         var token by remember { mutableStateOf("") }
-        var busy by remember { mutableStateOf(false) }
+        var busyToken by remember { mutableStateOf(false) }
         var qr by remember { mutableStateOf<Bitmap?>(null) }
         var qrStatus by remember { mutableStateOf("Preparing QR code") }
         var qrNonce by remember { mutableIntStateOf(0) }
+
 
         DisposableEffect(tab, qrNonce) {
             var auth: RemoteAuth? = null
@@ -107,111 +115,115 @@ class LoginActivity : AppCompatActivity() {
         }
 
         Surface(Modifier.fillMaxSize(), color = cs.surface) {
-            Column(
-                Modifier
-                    .systemBarsPadding()
-                    .imePadding()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    if (!adding) {
-                        Surface(shape = RoundedCornerShape(22.dp), color = cs.primaryContainer) {
-                            Icon(
-                                painterResource(R.drawable.ic_dpm_mark),
-                                null,
-                                tint = cs.onPrimaryContainer,
-                                modifier = Modifier.padding(16.dp).size(40.dp)
-                            )
-                        }
-                    }
-                    Column {
-                        Text(if (adding) "Add account" else "DPM", style = MaterialTheme.typography.headlineLarge)
-                        if (!adding) {
-                            Text("Discord Presence Manager", style = MaterialTheme.typography.titleMedium, color = cs.primary)
-                        }
-                        Text(
-                            "Control your Discord presence from your phone.",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = cs.onSurfaceVariant
-                        )
-                    }
-                }
-                Card(
-                    Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = cs.errorContainer)
+            Column(Modifier.systemBarsPadding().imePadding()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = if (adding) 4.dp else 20.dp, end = 20.dp, top = 8.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    if (adding) {
+                        IconButton(onClick = { onBackPressedDispatcher.onBackPressed() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        }
+                    }
                     Text(
-                        "Logging in with a token or QR code, and sending presence from a user account, is against Discord's " +
-                            "Terms of Service and can get your account limited or banned. Use at your own risk, ideally on an alternate account.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = cs.onErrorContainer,
-                        modifier = Modifier.padding(16.dp)
+                        if (adding) "Add account" else "Log in to DPM",
+                        style = MaterialTheme.typography.titleLargeEmphasized,
+                        modifier = Modifier.padding(vertical = 8.dp)
                     )
                 }
 
-                TabRow(selectedTabIndex = tab) {
-                    listOf("Browser", "Token", "QR").forEachIndexed { i, n ->
-                        Tab(selected = tab == i, onClick = { tab = i }, text = { Text(n) })
+                PrimaryTabRow(selectedTabIndex = tab, containerColor = cs.surface) {
+                    listOf("Browser", "Token", "QR").forEachIndexed { i, label ->
+                        Tab(selected = tab == i, onClick = { tab = i }, text = { Text(label) })
                     }
                 }
 
                 when (tab) {
-                    0 -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            "Log in on Discord's own website inside the app. Captchas, 2FA and passkeys all work, " +
-                                "and the token is picked up automatically.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = cs.onSurfaceVariant
-                        )
-                        Button(
-                            onClick = { go(Intent(this@LoginActivity, WebLoginActivity::class.java)) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("Open Discord login") }
-                    }
-                    1 -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedTextField(
-                            value = token,
-                            onValueChange = { token = it },
-                            label = { Text("Account token") },
-                            singleLine = true,
-                            visualTransformation = PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Button(
-                            enabled = !busy && token.isNotBlank(),
-                            onClick = {
-                                busy = true
-                                scope.launch {
-                                    val ok = completeLogin(token.trim().trim('"'))
-                                    if (!ok) busy = false
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text(if (busy) "Logging in" else "Log in") }
+                    0 -> Column(
+                        Modifier.weight(1f).fillMaxWidth().padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text("Log in with Discord's own page", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(16.dp))
+                        ExpButton(onClick = {
+                            startActivity(
+                                Intent(this@LoginActivity, BrowserLoginActivity::class.java)
+                            )
+                        }) { Text("Open Discord login") }
                     }
                     else -> Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Box(
-                            Modifier.size(260.dp).clip(RoundedCornerShape(20.dp)).background(Color.White),
-                            contentAlignment = Alignment.Center
+                        Card(
+                            Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.extraLarge,
+                            colors = CardDefaults.cardColors(containerColor = cs.errorContainer)
                         ) {
-                            val b = qr
-                            if (b != null) {
-                                Image(b.asImageBitmap(), null, Modifier.size(240.dp))
+                            Text(
+                                "Logging in with a token or QR code, and sending presence from a user account, is against Discord's " +
+                                    "Terms of Service and can get your account limited or banned. Use at your own risk, ideally on an alternate account.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = cs.onErrorContainer,
+                                modifier = Modifier.padding(16.dp)
+                            )
+                        }
+                        if (tab == 1) {
+                            OutlinedTextField(
+                                value = token,
+                                onValueChange = { token = it },
+                                label = { Text("Account token") },
+                                singleLine = true,
+                                shape = MaterialTheme.shapes.large,
+                                visualTransformation = PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            ExpButton(
+                                enabled = !busyToken && token.isNotBlank(),
+                                onClick = {
+                                    busyToken = true
+                                    scope.launch {
+                                        val ok = completeLogin(token.trim().trim('"'))
+                                        if (!ok) busyToken = false
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                if (busyToken) {
+                                    LoadingIndicator(Modifier.size(24.dp))
+                                    Spacer(Modifier.width(10.dp))
+                                }
+                                Text(if (busyToken) "Logging in" else "Log in")
+                            }
+                        } else {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Box(
+                                    Modifier.size(260.dp).clip(MaterialTheme.shapes.extraLarge).background(Color.White),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    val b = qr
+                                    if (b != null) {
+                                        Image(b.asImageBitmap(), null, Modifier.size(240.dp))
+                                    } else {
+                                        LoadingIndicator()
+                                    }
+                                }
+                                Text(qrStatus, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+                                ExpOutlinedButton(onClick = { qrNonce++ }) { Text("Refresh QR") }
                             }
                         }
-                        Text(qrStatus, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
-                        OutlinedButton(onClick = { qrNonce++ }) { Text("Refresh QR") }
+                        Spacer(Modifier.height(8.dp))
                     }
                 }
-                Spacer(Modifier.height(8.dp))
             }
         }
     }

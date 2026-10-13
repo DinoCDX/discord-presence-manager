@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Permissions · DPM</title>
-<meta name="description" content="What DPM asks for.">
-<meta name="theme-color" content="#5865f2">
+<meta name="description" content="What DPM asks for and why.">
+<meta name="theme-color" content="#18181b">
 <link rel="icon" type="image/png" href="assets/favicon.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="stylesheet" href="assets/style.css">
@@ -13,29 +13,28 @@
 <body>
 <header class="site"><div class="bar">
 <a class="brand" href="index.html"><img src="assets/favicon.png" alt="" width="32" height="32">DPM</a>
-<nav class="main"><a href="index.html">Home</a><a href="getting-started.html">Setup</a><a href="features.html">Features</a><a href="permissions.html" aria-current="page">Permissions</a><a href="images.html">Images</a><a href="troubleshooting.html">Troubleshooting</a><a href="build.html">Build</a></nav>
+<nav class="main"><a href="index.html">Home</a><a href="getting-started.html">Setup</a><a href="features.html">Features</a><a href="permissions.html" aria-current="page">Permissions</a><a href="images.html">Images</a><a href="troubleshooting.html">Troubleshooting</a></nav>
 </div></header>
 <main>
-
 <h1 class="page">Permissions</h1>
+<p class="sub">DPM asks for quite a few things. Here's what each one is for, and what happens if you say no.</p>
 
 <table>
-<tr><th>Permission</th><th>Used for</th><th>If you skip it</th></tr>
-<tr><td>Internet</td><td>Talking to Discord and GitHub.</td><td>Required.</td></tr>
-<tr><td>Notifications</td><td>The notification with Pause and Stop.</td><td>Sharing still works, without the quick controls.</td></tr>
-<tr><td>Usage access</td><td>Seeing which app or game is on screen.</td><td>Only media is shown.</td></tr>
-<tr><td>Notification access</td><td>Reading the title, artist and cover of what is playing.</td><td>Media isn't detected.</td></tr>
-<tr><td>Battery optimization</td><td>Keeping Android from stopping the app.</td><td>Presence may stop when the phone is idle.</td></tr>
-<tr><td>Start at boot</td><td>Restoring presence after a restart.</td><td>Open the app yourself after a restart.</td></tr>
-<tr><td>Installed apps</td><td>The Apps tab and app icons.</td><td>Required for per-app control.</td></tr>
-<tr><td>Install packages</td><td>Installing downloaded updates.</td><td>Update by downloading the APK yourself.</td></tr>
+<tr><th>Permission</th><th>What it's for</th><th>If you skip it</th></tr>
+<tr><td>Internet</td><td>Talking to Discord and GitHub.</td><td>Nothing works without it.</td></tr>
+<tr><td>Notifications</td><td>The notification with Pause and Stop.</td><td>Sharing still works, you just lose the quick buttons.</td></tr>
+<tr><td>Usage access</td><td>Seeing which app or game is on screen.</td><td>Only music and video will show.</td></tr>
+<tr><td>Notification access</td><td>Reading the title, artist and cover of what's playing.</td><td>DPM can't tell when media is playing.</td></tr>
+<tr><td>Battery optimization</td><td>Stopping Android from putting DPM to sleep.</td><td>Presence may drop out when the phone sits idle.</td></tr>
+<tr><td>Start at boot</td><td>Bringing presence back after a restart.</td><td>You'll need to open the app yourself after rebooting.</td></tr>
+<tr><td>Installed apps</td><td>Building the Apps tab and showing icons.</td><td>You lose per-app control.</td></tr>
+<tr><td>Install packages</td><td>Installing updates you've downloaded.</td><td>You can still update by installing the APK by hand.</td></tr>
 </table>
 
-<p>Your token is stored on the phone in encrypted preferences and only sent to Discord.</p>
-
+<p>Your token stays on the phone in encrypted storage, and the only place it's ever sent is Discord.</p>
 </main>
 <footer class="site"><div class="bar">
-<span>DPM, Discord Presence Manager. Not affiliated with Discord.</span>
+<span>DPM (Discord Presence Manager) isn't affiliated with Discord.</span>
 <a href="https://github.com/DinoCDX/discord-presence-manager">Source on GitHub</a>
 </div></footer>
 </body>

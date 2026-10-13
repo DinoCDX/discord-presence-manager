@@ -4,7 +4,10 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.provider.Settings
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,26 +18,34 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -49,6 +60,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -59,6 +72,10 @@ import kotlinx.coroutines.withContext
 private class AppEntry(val pkg: String, val label: String, val category: Int)
 
 private const val LIMIT = 128
+
+private fun LazyListScope.gap() {
+    item { Spacer(Modifier.height(8.dp)) }
+}
 
 private fun ruleShown(a: AppEntry, ui: UiState): Boolean =
     a.category == ApplicationInfo.CATEGORY_GAME ||
@@ -127,10 +144,8 @@ fun AppsScreen(ui: UiState, listState: LazyListState = rememberLazyListState()) 
     LazyColumn(
         state = listState,
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        item { ScreenHeader("Apps", "Choose what Discord can show") }
-
         if (!usageOk) {
             item {
                 Banner(
@@ -139,6 +154,7 @@ fun AppsScreen(ui: UiState, listState: LazyListState = rememberLazyListState()) 
                     "Open settings"
                 ) { ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
             }
+            gap()
         }
         if (!listenerOk) {
             item {
@@ -148,6 +164,7 @@ fun AppsScreen(ui: UiState, listState: LazyListState = rememberLazyListState()) 
                     "Open settings"
                 ) { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
             }
+            gap()
         }
 
         item {
@@ -171,8 +188,10 @@ fun AppsScreen(ui: UiState, listState: LazyListState = rememberLazyListState()) 
             }
         }
 
+        gap()
+
         item {
-            OutlinedTextField(
+            TextField(
                 value = query,
                 onValueChange = { query = it },
                 placeholder = { Text("Search apps") },
@@ -181,24 +200,50 @@ fun AppsScreen(ui: UiState, listState: LazyListState = rememberLazyListState()) 
                     if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Default.Close, "Clear") }
                 },
                 singleLine = true,
+                shape = CircleShape,
+                colors = TextFieldDefaults.colors(
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent,
+                    errorIndicatorColor = Color.Transparent,
+                    focusedContainerColor = cs.surfaceContainerHigh,
+                    unfocusedContainerColor = cs.surfaceContainerHigh
+                ),
                 modifier = Modifier.fillMaxWidth()
             )
         }
+        gap()
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("All", "Allowed", "Ignored", "Custom").forEachIndexed { i, n ->
-                    FilterChip(selected = filter == i, onClick = { filter = i }, label = { Text(n) })
+                    FilterChip(
+                        selected = filter == i,
+                        onClick = { filter = i },
+                        label = { Text(n) },
+                        leadingIcon = if (filter == i) {
+                            { Icon(Icons.Default.Check, null, Modifier.size(FilterChipDefaults.IconSize)) }
+                        } else {
+                            null
+                        },
+                        shape = MaterialTheme.shapes.medium
+                    )
                 }
             }
         }
 
+        gap()
+
         if (apps.isEmpty()) {
-            item { LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 12.dp)) }
+            item {
+                Box(Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
+                    LoadingIndicator()
+                }
+            }
         } else if (shown.isEmpty()) {
             item { Text("No apps match", color = cs.onSurfaceVariant, modifier = Modifier.padding(8.dp)) }
         }
 
-        items(shown, key = { it.pkg }) { a ->
+        itemsIndexed(shown, key = { _, a -> a.pkg }) { index, a ->
             val mode = ui.appMode(a.pkg)
             val custom = a.pkg in ui.customs
             val sub = when (mode) {
@@ -211,11 +256,21 @@ fun AppsScreen(ui: UiState, listState: LazyListState = rememberLazyListState()) 
                     else -> "Hidden by default"
                 }
             } + if (custom) " \u00B7 custom text" else ""
+            val edge = 24.dp
+            val inner = 6.dp
+            val rowShape = RoundedCornerShape(
+                topStart = if (index == 0) edge else inner,
+                topEnd = if (index == 0) edge else inner,
+                bottomStart = if (index == shown.lastIndex) edge else inner,
+                bottomEnd = if (index == shown.lastIndex) edge else inner
+            )
             Row(
                 Modifier
                     .fillMaxWidth()
+                    .clip(rowShape)
+                    .background(cs.surfaceContainer)
                     .clickable { open = a }
-                    .padding(vertical = 6.dp, horizontal = 4.dp),
+                    .padding(vertical = 10.dp, horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 AppIcon(a.pkg, 44.dp)
@@ -229,10 +284,16 @@ fun AppsScreen(ui: UiState, listState: LazyListState = rememberLazyListState()) 
                     )
                 }
                 Spacer(Modifier.width(12.dp))
+                val on = shownNow(a, ui)
                 Switch(
-                    checked = shownNow(a, ui),
-                    onCheckedChange = { on ->
-                        ui.setAppMode(a.pkg, if (on) 1 else if (ruleShown(a, ui)) 2 else 0)
+                    checked = on,
+                    onCheckedChange = { v ->
+                        ui.setAppMode(a.pkg, if (v) 1 else if (ruleShown(a, ui)) 2 else 0)
+                    },
+                    thumbContent = if (on) {
+                        { Icon(Icons.Default.Check, null, Modifier.size(SwitchDefaults.IconSize)) }
+                    } else {
+                        null
                     }
                 )
             }
@@ -321,7 +382,7 @@ private fun AppSheet(a: AppEntry, ui: UiState) {
             AppIcon(a.pkg, 56.dp)
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
-                Text(a.label, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(a.label, style = MaterialTheme.typography.titleLargeEmphasized, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(a.pkg, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             SavedTag(ui, now)
@@ -347,7 +408,7 @@ private fun AppSheet(a: AppEntry, ui: UiState) {
         }
 
         Spacer(Modifier.height(20.dp))
-        Text("Show this app", style = MaterialTheme.typography.labelLarge, color = cs.primary)
+        Text("Show this app", style = MaterialTheme.typography.titleMediumEmphasized, color = cs.primary)
         Spacer(Modifier.height(8.dp))
         Segmented(listOf("Auto", "Allowed", "Ignored"), mode, { mode = it })
         Text(

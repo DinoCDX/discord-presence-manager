@@ -42,6 +42,8 @@ object GatewayClient {
 
     var onState: ((String) -> Unit)? = null
 
+    val tokenRejected: Boolean get() = state.startsWith("Token rejected")
+
     @Synchronized
     fun connect(t: String) {
         if (wanted && token == t && ws != null) return
@@ -74,7 +76,7 @@ object GatewayClient {
             .put("status", status)
             .put("since", 0)
             .put("activities", activities)
-            .put("afk", false)
+            .put("afk", true)
 
     private fun setState(s: String) {
         state = s
@@ -149,11 +151,16 @@ object GatewayClient {
             setState("Token rejected by Discord")
             return
         }
+        if (code == 4010 || code == 4011 || code == 4012 || code == 4013 || code == 4014) {
+            wanted = false
+            setState("Discord refused the connection ($code)")
+            return
+        }
         if (wanted) {
-            setState("Reconnecting")
-            retry?.cancel()
             val wait = minOf(60_000L, 5_000L shl minOf(attempts, 4))
             attempts++
+            setState(if (code == 0) "Offline, retrying in ${wait / 1000}s" else "Reconnecting")
+            retry?.cancel()
             retry = scope.launch {
                 delay(wait)
                 if (wanted) open()

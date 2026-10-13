@@ -2,7 +2,6 @@ package com.dpm.app
 
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
@@ -19,15 +18,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,8 +45,7 @@ fun SettingsScreen(
     ui: UiState,
     onSwitch: (Account) -> Unit,
     onRemove: (Account) -> Unit,
-    onAddBrowser: () -> Unit,
-    onAddOther: () -> Unit,
+    onAdd: () -> Unit,
     onCopyToken: (String) -> Unit,
     onReplayIntro: () -> Unit,
     scroll: ScrollState = rememberScrollState()
@@ -65,8 +59,6 @@ fun SettingsScreen(
         Modifier.verticalScroll(scroll).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Gap14
     ) {
-        ScreenHeader("Settings")
-
         SectionCard("Accounts") {
             ui.accounts.forEach { a ->
                 val active = a.id == ui.activeId
@@ -91,10 +83,7 @@ fun SettingsScreen(
                 }
             }
             Spacer(Modifier.height(8.dp))
-            FilledTonalButton(onClick = onAddBrowser, modifier = Modifier.fillMaxWidth()) { Text("Add account with browser") }
-            OutlinedButton(onClick = onAddOther, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                Text("Add with token or QR code")
-            }
+            ExpTonalButton(onClick = onAdd, modifier = Modifier.fillMaxWidth()) { Text("Add account") }
         }
 
         SectionCard("Appearance") {
@@ -103,13 +92,19 @@ fun SettingsScreen(
                 listOf("system", "light", "dark").indexOf(ui.themeMode).coerceAtLeast(0),
                 onSelect = { ui.setTheme(listOf("system", "light", "dark")[it]) }
             )
-            Spacer(Modifier.height(6.dp))
+        }
+
+        SectionCard("Buttons on Discord") {
             ToggleRow(
-                "Dynamic color",
-                if (Build.VERSION.SDK_INT >= 31) "Use colors from your wallpaper" else "Needs Android 12 or newer",
-                ui.dyn && Build.VERSION.SDK_INT >= 31,
-                enabled = Build.VERSION.SDK_INT >= 31
-            ) { ui.setDyn(it) }
+                "YouTube button",
+                "Video link or YouTube search",
+                ui.btnVideo
+            ) { ui.setBtnVideo(it) }
+            ToggleRow(
+                "Get DPM button",
+                "Link to the GitHub page",
+                ui.btnRepo
+            ) { ui.setBtnRepo(it) }
         }
 
         SectionCard("Images") {
@@ -144,10 +139,10 @@ fun SettingsScreen(
                 )
             }
             Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = {
+                ExpOutlinedButton(onClick = {
                     ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://discord.com/developers/applications")))
                 }) { Text("Developer portal") }
-                FilledTonalButton(enabled = !checking && ui.appId.isNotBlank(), onClick = {
+                ExpTonalButton(enabled = !checking && ui.appId.isNotBlank(), onClick = {
                     checking = true
                     scope.launch {
                         status = withContext(Dispatchers.IO) { Art.check(ctx) }
@@ -171,7 +166,7 @@ fun SettingsScreen(
                 color = cs.onSurfaceVariant
             )
             if (!batteryOk) {
-                Button(
+                ExpButton(
                     onClick = {
                         ctx.startActivity(
                             Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}"))
@@ -204,8 +199,8 @@ fun SettingsScreen(
                 modifier = Modifier.padding(vertical = 10.dp)
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { shown = !shown }, modifier = Modifier.weight(1f)) { Text(if (shown) "Hide" else "Show") }
-                FilledTonalButton(onClick = { onCopyToken(tk) }, modifier = Modifier.weight(1f)) { Text("Copy") }
+                ExpOutlinedButton(onClick = { shown = !shown }, modifier = Modifier.weight(1f)) { Text(if (shown) "Hide" else "Show") }
+                ExpTonalButton(onClick = { onCopyToken(tk) }, modifier = Modifier.weight(1f)) { Text("Copy") }
             }
         }
 
@@ -237,22 +232,22 @@ fun SettingsScreen(
                 )
             }
             when (st) {
-                is UpdateState.Checking -> LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 12.dp))
-                is UpdateState.Downloading -> LinearProgressIndicator(
+                is UpdateState.Checking -> LinearWavyProgressIndicator(Modifier.fillMaxWidth().padding(top = 12.dp))
+                is UpdateState.Downloading -> LinearWavyProgressIndicator(
                     progress = { if (st.total > 0L) (st.done.toFloat() / st.total).coerceIn(0f, 1f) else 0f },
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
                 )
                 is UpdateState.Available -> Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { Updater.download(ctx) }) { Text("Download") }
-                    OutlinedButton(onClick = {
+                    ExpButton(onClick = { Updater.download(ctx) }) { Text("Download") }
+                    ExpOutlinedButton(onClick = {
                         ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(st.page.ifEmpty { Updater.REPO_URL })))
                     }) { Text("Release page") }
                 }
-                is UpdateState.Ready -> Button(
+                is UpdateState.Ready -> ExpButton(
                     onClick = { ctx.activity()?.let { Updater.install(it) } },
                     modifier = Modifier.padding(top = 12.dp)
                 ) { Text("Install") }
-                else -> FilledTonalButton(
+                else -> ExpTonalButton(
                     onClick = { Updater.check(ctx) },
                     modifier = Modifier.padding(top = 12.dp)
                 ) { Text("Check for updates") }
@@ -265,7 +260,7 @@ fun SettingsScreen(
 
         SectionCard("About") {
             val version = remember { runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull().orEmpty() }
-            Text("DPM", style = MaterialTheme.typography.titleLarge)
+            Text("DPM", style = MaterialTheme.typography.titleLargeEmphasized)
             Text(
                 "Discord Presence Manager $version",
                 style = MaterialTheme.typography.bodyMedium,
@@ -279,11 +274,11 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant
             )
-            TextButton(onClick = onReplayIntro) { Text("Show intro again") }
+            ExpTextButton(onClick = onReplayIntro) { Text("Show intro again") }
         }
 
         SectionCard("Credits") {
-            Text("Made by DinoCDX", style = MaterialTheme.typography.titleMedium)
+            Text("Made by DinoCDX", style = MaterialTheme.typography.titleMediumEmphasized)
             Text(
                 "DPM is open source. Bug reports and pull requests are welcome.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -291,16 +286,16 @@ fun SettingsScreen(
                 modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = {
+                ExpOutlinedButton(onClick = {
                     ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Updater.OWNER_URL)))
                 }) { Text("GitHub profile") }
-                FilledTonalButton(onClick = {
+                ExpTonalButton(onClick = {
                     ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Updater.REPO_URL)))
                 }) { Text("Source code") }
             }
         }
 
-        FilledTonalButton(
+        ExpTonalButton(
             onClick = { active?.let { confirm = it } },
             modifier = Modifier.fillMaxWidth()
         ) { Text("Log out of ${active?.name ?: "account"}") }
@@ -312,8 +307,8 @@ fun SettingsScreen(
             onDismissRequest = { confirm = null },
             title = { Text("Remove ${a.name}?") },
             text = { Text("This only removes the account from this device.") },
-            confirmButton = { TextButton(onClick = { confirm = null; onRemove(a) }) { Text("Remove") } },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text("Cancel") } }
+            confirmButton = { ExpTextButton(onClick = { confirm = null; onRemove(a) }) { Text("Remove") } },
+            dismissButton = { ExpTextButton(onClick = { confirm = null }) { Text("Cancel") } }
         )
     }
 }

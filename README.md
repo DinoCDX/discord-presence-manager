@@ -1,91 +1,56 @@
 # DPM
 
-Discord Presence Manager. It shows what you're doing on your Android phone (music, video, games, apps) as your Discord activity.
+DPM (Discord Presence Manager) puts what you're doing on your Android phone into your Discord status. The music you're playing, the video you're watching, the game or app you have open.
 
 <p align="center"><img src="docs/assets/icon-512.png" alt="DPM icon" width="120"></p>
 
 > [!WARNING]
-> Sending presence from a user account is against Discord's Terms of Service and can get the account limited or banned. Use an alternate account if you can. DPM isn't affiliated with Discord.
+> Discord doesn't allow presence from a user account, so the account can get limited or banned. If you can, use an alternate one. DPM isn't affiliated with Discord.
 
-## What it does
+## What you get
 
-- Follows what you do: playing media first, then the game or app on screen
-- Static mode where you write the activity yourself
-- Live preview that looks like the Discord card
-- Allow or ignore each app, or give an app its own text
-- Schedule by weekday and hour, plus an online-only rule
-- Several accounts (browser login, token or QR code) with instant switching
-- App icons and cover art through your own Discord application ID
-- Runs in the background with Pause and Stop in the notification
-- Checks GitHub for new releases and installs them from inside the app
+- It follows along. Whatever's playing comes first, then the game or app on your screen.
+- A static mode, where you write the status yourself.
+- A live preview that looks like the card Discord shows.
+- Per-app control: allow an app, ignore it, or give it its own text.
+- A schedule by day and hour, plus an option to only share while you're online.
+- Several accounts. Log in with the browser, a token or a QR code and switch instantly.
+- App icons and cover art, through a Discord application of your own.
+- A notification with Pause and Stop, so you can control it from anywhere.
+- Updates from GitHub that you can install without leaving the app.
+- A Material 3 Expressive interface that follows your wallpaper colors.
 
-Needs Android 10 or newer. Wallpaper colors need Android 12 and the themed icon needs Android 13.
+You need Android 10 or newer. Wallpaper colors need Android 12 and the themed icon needs Android 13.
 
-## Install
+## Getting it
 
-Grab the APK from the [latest release](https://github.com/DinoCDX/discord-presence-manager/releases/latest) and install it.
+Download the APK from the [latest release](https://github.com/DinoCDX/discord-presence-manager/releases/latest) and install it.
 
-## Setup
+## First run
 
-1. Log in. The Browser tab is the easiest because captchas, 2FA and passkeys work there.
-2. Go through the intro and grant the permissions you want. Any of them can be skipped.
-3. Turn on Share my presence on the Presence tab.
-4. Choose which apps can show up on the Apps tab.
-5. For images, create an application in the [Discord developer portal](https://discord.com/developers/applications) and paste its Application ID in Settings.
+1. Log in. The Browser option is the easiest, since captchas, 2FA and passkeys all work there.
+2. Click through the intro and allow what you're happy with. Every permission can be skipped.
+3. On the Presence tab, switch on Share my presence.
+4. On the Apps tab, choose which apps are allowed to show up.
+5. For images, make an application in the [Discord developer portal](https://discord.com/developers/applications) and paste its Application ID into Settings.
 
-More detail is in the [docs](docs/index.html).
+The [docs](docs/index.html) go into more detail.
 
 ## Permissions
 
-| Permission | Used for |
+| Permission | What it's for |
 | --- | --- |
-| Internet | Discord and GitHub |
+| Internet | Talking to Discord and GitHub |
 | Notifications | Pause and Stop in the notification |
 | Usage access | Seeing which app or game is on screen |
 | Notification access | Reading what media is playing |
-| Battery optimization | Keeping Android from stopping the app |
-| Start at boot | Restoring presence after a restart |
+| Battery optimization | Keeping Android from putting the app to sleep |
+| Start at boot | Bringing presence back after a restart |
 | Installed apps | The app list and icons |
 | Install packages | Installing downloaded updates |
 
-The token is stored in encrypted preferences and only sent to Discord.
-
-## Build
-
-You need JDK 17 and Android SDK platform 34.
-
-```bash
-git clone https://github.com/DinoCDX/discord-presence-manager.git
-cd discord-presence-manager
-./gradlew assembleDebug
-```
-
-The APK is in `app/build/outputs/apk/debug/`.
-
-## Releases
-
-Pushing a tag like `v1.0.0` runs `.github/workflows/release.yml`, which builds a signed APK and publishes a GitHub release. The in-app updater reads the latest release.
-
-Updates only install over the existing app when every release is signed with the same key, so create one keystore and keep it safe:
-
-```bash
-keytool -genkeypair -v -keystore dpm-release.jks -alias dpm -keyalg RSA -keysize 4096 -validity 10000
-base64 -w0 dpm-release.jks
-```
-
-Add these repository secrets: `KEYSTORE_BASE64` (the base64 output), `KEYSTORE_PASSWORD`, `KEY_ALIAS` (`dpm` above) and `KEY_PASSWORD`. Then:
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-The tag sets the version: `v1.2.3` becomes version name 1.2.3 and version code 10203.
-
-## Docs on GitHub Pages
-
-The site in `docs/` is ready to publish. In the repository settings open Pages, choose Deploy from a branch, then select your main branch and the `/docs` folder.
+Your token is kept in encrypted preferences on the phone and is only ever sent to Discord.
 
 ## Credits
 
-Made by [DinoCDX](https://github.com/DinoCDX). Built with Kotlin, Jetpack Compose, Material 3, OkHttp and ZXing.
+Made by [DinoCDX](https://github.com/DinoCDX). Built with Kotlin, Jetpack Compose, Material 3 Expressive, OkHttp and ZXing.

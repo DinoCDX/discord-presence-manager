@@ -68,7 +68,7 @@ header.site {
   color: var(--on-bg);
   text-decoration: none;
 }
-.brand img { width: 32px; height: 32px; border-radius: 9px; }
+.brand img { width: 32px; height: 32px; }
 nav.main { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
 nav.main a {
   padding: 7px 14px;
@@ -91,7 +91,7 @@ main { max-width: 1040px; margin: 0 auto; padding: 36px 20px 64px; }
 .hero h1 { font-size: clamp(2.2rem, 6vw, 3.6rem); line-height: 1.05; margin: 0 0 12px; letter-spacing: -0.03em; }
 .hero p.lead { font-size: 1.15rem; color: var(--muted); margin: 0 0 24px; max-width: 34ch; }
 .hero .art { display: flex; justify-content: center; }
-.hero .art img { width: min(260px, 70%); border-radius: 56px; box-shadow: 0 24px 60px rgba(71, 82, 196, 0.35); }
+.hero .art img { width: min(260px, 70%); filter: drop-shadow(0 24px 36px rgba(0, 0, 0, 0.35)); }
 .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
 .btn {
   display: inline-block;

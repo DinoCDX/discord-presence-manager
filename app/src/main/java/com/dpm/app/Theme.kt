@@ -5,7 +5,8 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -22,6 +23,7 @@ private val Light = lightColorScheme(
     onPrimary = Color.White,
     primaryContainer = Color(0xFFE0E0FF),
     onPrimaryContainer = Color(0xFF000F5C),
+    inversePrimary = Color(0xFFBEC2FF),
     secondary = Color(0xFF5B5D72),
     onSecondary = Color.White,
     secondaryContainer = Color(0xFFE0E1F9),
@@ -36,10 +38,22 @@ private val Light = lightColorScheme(
     onSurface = Color(0xFF1B1B21),
     surfaceVariant = Color(0xFFE3E1EC),
     onSurfaceVariant = Color(0xFF46464F),
+    surfaceTint = Color(0xFF4752C4),
+    inverseSurface = Color(0xFF303036),
+    inverseOnSurface = Color(0xFFF2EFF4),
+    error = Color(0xFFBA1A1A),
+    onError = Color.White,
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002),
+    outline = Color(0xFF777680),
+    outlineVariant = Color(0xFFC7C5D0),
+    surfaceDim = Color(0xFFDBD9DE),
+    surfaceBright = Color(0xFFFBF8FD),
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Color(0xFFF5F2F8),
     surfaceContainer = Color(0xFFEFEDF4),
     surfaceContainerHigh = Color(0xFFE9E7EF),
-    outline = Color(0xFF777680),
-    outlineVariant = Color(0xFFC7C5D0)
+    surfaceContainerHighest = Color(0xFFE4E1E9)
 )
 
 private val Dark = darkColorScheme(
@@ -47,6 +61,7 @@ private val Dark = darkColorScheme(
     onPrimary = Color(0xFF14209A),
     primaryContainer = Color(0xFF2E3AAC),
     onPrimaryContainer = Color(0xFFE0E0FF),
+    inversePrimary = Color(0xFF4752C4),
     secondary = Color(0xFFC4C5DD),
     onSecondary = Color(0xFF2D2F42),
     secondaryContainer = Color(0xFF434559),
@@ -61,10 +76,22 @@ private val Dark = darkColorScheme(
     onSurface = Color(0xFFE4E1E6),
     surfaceVariant = Color(0xFF46464F),
     onSurfaceVariant = Color(0xFFC7C5D0),
+    surfaceTint = Color(0xFFBEC2FF),
+    inverseSurface = Color(0xFFE4E1E6),
+    inverseOnSurface = Color(0xFF303034),
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
+    outline = Color(0xFF918F9A),
+    outlineVariant = Color(0xFF46464F),
+    surfaceDim = Color(0xFF131316),
+    surfaceBright = Color(0xFF39393D),
+    surfaceContainerLowest = Color(0xFF0E0E11),
+    surfaceContainerLow = Color(0xFF1B1B1F),
     surfaceContainer = Color(0xFF1F1F23),
     surfaceContainerHigh = Color(0xFF2A2A2D),
-    outline = Color(0xFF918F9A),
-    outlineVariant = Color(0xFF46464F)
+    surfaceContainerHighest = Color(0xFF353438)
 )
 
 fun Context.activity(): Activity? {
@@ -98,5 +125,5 @@ fun DPMTheme(themeMode: String, dynamic: Boolean, content: @Composable () -> Uni
             ic.isAppearanceLightNavigationBars = !dark
         }
     }
-    MaterialTheme(colorScheme = scheme, typography = DPMTypography, shapes = DPMShapes, content = content)
+    MaterialExpressiveTheme(colorScheme = scheme, motionScheme = MotionScheme.expressive(), content = content)
 }

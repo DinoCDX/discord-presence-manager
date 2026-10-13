@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Troubleshooting · DPM</title>
-<meta name="description" content="Fixes for common problems.">
-<meta name="theme-color" content="#5865f2">
+<meta name="description" content="Fixes for the usual problems.">
+<meta name="theme-color" content="#18181b">
 <link rel="icon" type="image/png" href="assets/favicon.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="stylesheet" href="assets/style.css">
@@ -13,39 +13,37 @@
 <body>
 <header class="site"><div class="bar">
 <a class="brand" href="index.html"><img src="assets/favicon.png" alt="" width="32" height="32">DPM</a>
-<nav class="main"><a href="index.html">Home</a><a href="getting-started.html">Setup</a><a href="features.html">Features</a><a href="permissions.html">Permissions</a><a href="images.html">Images</a><a href="troubleshooting.html" aria-current="page">Troubleshooting</a><a href="build.html">Build</a></nav>
+<nav class="main"><a href="index.html">Home</a><a href="getting-started.html">Setup</a><a href="features.html">Features</a><a href="permissions.html">Permissions</a><a href="images.html">Images</a><a href="troubleshooting.html" aria-current="page">Troubleshooting</a></nav>
 </div></header>
 <main>
-
 <h1 class="page">Troubleshooting</h1>
 
-<details><summary>Nothing shows on Discord</summary>
-<p>Check that Share my presence is on and not paused. The line under it says what is blocking it, for example a schedule or the online-only rule. In dynamic mode the app also has to be allowed in the Apps tab and Usage access has to be granted.</p></details>
+<details><summary>Nothing shows up on Discord</summary>
+<p>First check that Share my presence is on and not paused. The line under the switch tells you what's holding it back, like a schedule or the online-only option. In dynamic mode, the app also needs to be allowed on the Apps tab, and Usage access needs to be granted.</p></details>
 
-<details><summary>Music or video isn't detected</summary>
-<p>Grant Notification access. DPM reads the media session through it. Also check that the player isn't set to Ignored.</p></details>
+<details><summary>My music or video isn't picked up</summary>
+<p>DPM reads what's playing through Notification access, so make sure that's on. Also check the player isn't set to Ignored on the Apps tab.</p></details>
 
 <details><summary>Presence stops after a while</summary>
-<p>Allow background activity under Settings, Background. Phones from Xiaomi, Oppo, Vivo, Huawei and Samsung often have a separate autostart or app launch setting in system settings that also needs to be on.</p></details>
+<p>Allow background activity under Settings, then Background. Phones from Xiaomi, Oppo, Vivo, Huawei and Samsung often hide a second autostart or app launch setting in system settings, and that one needs to be on too.</p></details>
 
-<details><summary>It says Reconnecting for a long time</summary>
-<p>DPM retries with longer and longer pauses, up to a minute, while Discord or your network is unreachable. It reconnects by itself once the connection is back.</p></details>
+<details><summary>It says Reconnecting for ages</summary>
+<p>While Discord or your connection is down, DPM keeps retrying with longer and longer pauses, up to a minute. It'll reconnect by itself as soon as things are back.</p></details>
 
 <details><summary>Images are missing</summary>
-<p>Add an application ID under Settings, Images, then tap Check. See <a href="images.html">Images</a>.</p></details>
+<p>Add an application ID under Settings, then Images, and tap Check. The <a href="images.html">images guide</a> walks through it.</p></details>
 
-<details><summary>Login problems</summary>
-<p>Use the Browser tab. It signs in on Discord's own page, so captchas, two-factor codes and passkeys work.</p></details>
+<details><summary>I can't log in</summary>
+<p>Use the Browser option. It signs in on Discord's own page, so captchas, two-factor codes and passkeys behave normally.</p></details>
 
 <details><summary>An update won't install</summary>
-<p>Android needs permission to install apps from DPM. Tap Install again and allow it when the settings page opens. If it says the app wasn't installed, the release was probably signed with a different key than the version on your phone. Uninstall DPM and install the new APK.</p></details>
+<p>Android needs your permission to let DPM install apps. Tap Install again and allow it when the settings page opens. If Android says the app wasn't installed, that release was probably signed with a different key from the one on your phone. Uninstall DPM and install the new APK.</p></details>
 
-<details><summary>Wallpaper colors or the themed icon don't show</summary>
-<p>Wallpaper colors need Android 12 and the Dynamic color switch in Settings. The themed icon needs Android 13 and themed icons turned on in your launcher.</p></details>
-
+<details><summary>The themed icon isn't showing</summary>
+<p>The themed icon needs Android 13, plus themed icons turned on in your launcher.</p></details>
 </main>
 <footer class="site"><div class="bar">
-<span>DPM, Discord Presence Manager. Not affiliated with Discord.</span>
+<span>DPM (Discord Presence Manager) isn't affiliated with Discord.</span>
 <a href="https://github.com/DinoCDX/discord-presence-manager">Source on GitHub</a>
 </div></footer>
 </body>

@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Images · DPM</title>
-<meta name="description" content="Show app icons and cover art.">
-<meta name="theme-color" content="#5865f2">
+<meta name="description" content="Get app icons and cover art showing on Discord.">
+<meta name="theme-color" content="#18181b">
 <link rel="icon" type="image/png" href="assets/favicon.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="stylesheet" href="assets/style.css">
@@ -13,27 +13,25 @@
 <body>
 <header class="site"><div class="bar">
 <a class="brand" href="index.html"><img src="assets/favicon.png" alt="" width="32" height="32">DPM</a>
-<nav class="main"><a href="index.html">Home</a><a href="getting-started.html">Setup</a><a href="features.html">Features</a><a href="permissions.html">Permissions</a><a href="images.html" aria-current="page">Images</a><a href="troubleshooting.html">Troubleshooting</a><a href="build.html">Build</a></nav>
+<nav class="main"><a href="index.html">Home</a><a href="getting-started.html">Setup</a><a href="features.html">Features</a><a href="permissions.html">Permissions</a><a href="images.html" aria-current="page">Images</a><a href="troubleshooting.html">Troubleshooting</a></nav>
 </div></header>
 <main>
-
 <h1 class="page">Images</h1>
-<p class="sub">Discord doesn't accept pictures directly. DPM uploads each image once to a Discord application that you own and refers to it by ID.</p>
+<p class="sub">Discord won't take pictures directly. So DPM uploads each image once to a Discord application that belongs to you, then points to it by ID.</p>
 
 <ol class="steps">
-<li>Open the <a href="https://discord.com/developers/applications">Discord developer portal</a> and create a <strong>New Application</strong>. The name doesn't matter.</li>
-<li>Copy the <strong>Application ID</strong> from the General Information page.</li>
-<li>In DPM, open Settings, then Images, and paste the ID.</li>
-<li>Tap <strong>Check</strong>. The status should say Connected.</li>
-<li>Make sure <strong>Send images</strong> is on.</li>
+<li>Open the <a href="https://discord.com/developers/applications">Discord developer portal</a> and make a <strong>New Application</strong>. The name can be anything.</li>
+<li>Copy its <strong>Application ID</strong> from the General Information page.</li>
+<li>In DPM, go to Settings, then Images, and paste the ID in.</li>
+<li>Tap <strong>Check</strong>. It should say Connected.</li>
+<li>Make sure <strong>Send images</strong> is switched on.</li>
 </ol>
 
-<p>DPM sends the app icon, or the cover art with the app icon as a small badge. The activity line still reads like "Listening to" followed by the app name.</p>
-<p>Without an application ID Discord shows text only, and the preview says so.</p>
-
+<p>What gets sent is the app's icon, or the cover art with the app icon as a small badge. The line above it still reads something like "Listening to" followed by the app name.</p>
+<p>No application ID means Discord only shows text, and the preview in DPM will tell you so.</p>
 </main>
 <footer class="site"><div class="bar">
-<span>DPM, Discord Presence Manager. Not affiliated with Discord.</span>
+<span>DPM (Discord Presence Manager) isn't affiliated with Discord.</span>
 <a href="https://github.com/DinoCDX/discord-presence-manager">Source on GitHub</a>
 </div></footer>
 </body>

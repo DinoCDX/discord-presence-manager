@@ -134,6 +134,31 @@ object Art {
         return r
     }
 
+    @Synchronized
+    fun resolveStatic(c: Context, token: String, i: Info): Resolved? {
+        val app = appId(c)
+        if (app.isEmpty()) return null
+        val large = StaticFiles.file(c, i.largeFile.orEmpty())
+        val small = StaticFiles.file(c, i.smallFile.orEmpty())
+        if (large == null && small == null) return null
+        val k = "$app|static|${large?.name}|${large?.length()}|${small?.name}|${small?.length()}"
+        val now = System.currentTimeMillis()
+        cache[k]?.let { if (it.r != null || now - it.at < RETRY_MS) return it.r }
+        val r = if (!load(token, app)) {
+            null
+        } else {
+            val big = large?.let { f -> val b = f.readBytes(); asset(token, app, "st" + sha(b, 24), "image/jpeg") { b } }
+            val sm = small?.let { f -> val b = f.readBytes(); asset(token, app, "st" + sha(b, 24), "image/jpeg") { b } }
+            when {
+                big != null -> Resolved(big, sm)
+                sm != null -> Resolved(sm, null)
+                else -> null
+            }
+        }
+        cache[k] = Entry(r, now)
+        return r
+    }
+
     private fun build(c: Context, token: String, app: String, pkg: String, cover: Bitmap?): Resolved? {
         if (!load(token, app)) return null
         val icon = asset(token, app, "ic" + sha(pkg.toByteArray(), 24), "image/png") {

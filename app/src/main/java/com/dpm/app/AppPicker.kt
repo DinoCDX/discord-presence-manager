@@ -1,8 +1,8 @@
 package com.dpm.app
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 object AppPicker {
     private class Item(val pkg: String, val label: String)
@@ -21,7 +21,7 @@ object AppPicker {
         val list = items(a)
         val current = Store.pkgs(a, key)
         val checked = BooleanArray(list.size) { list[it].pkg in current }
-        MaterialAlertDialogBuilder(a)
+        AlertDialog.Builder(a)
             .setTitle(title)
             .setMultiChoiceItems(list.map { it.label }.toTypedArray(), checked) { _, which, on ->
                 checked[which] = on

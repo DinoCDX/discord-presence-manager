@@ -7,10 +7,13 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,16 +25,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -40,9 +41,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 
 private const val STEPS = 6
@@ -57,7 +58,13 @@ fun Onboarding(ui: UiState, onDone: () -> Unit) {
     val usage = remember(ui.permTick) { Perms.usage(ctx) }
     val listener = remember(ui.permTick) { Perms.listener(ctx) }
     val battery = remember(ui.permTick) { Perms.battery(ctx) }
-    val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ui.permTick++ }
+    val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        ui.permTick++
+        if (!granted && ctx.activity().notificationsBlockedForGood()) ctx.openNotificationSettings()
+    }
+
+    val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+    val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
 
     fun finish(start: Boolean) {
         ui.setOnboarded(true)
@@ -68,32 +75,44 @@ fun Onboarding(ui: UiState, onDone: () -> Unit) {
     Surface(Modifier.fillMaxSize(), color = cs.surface) {
         Column(Modifier.systemBarsPadding().padding(24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    repeat(STEPS) { i ->
-                        Box(
-                            Modifier
-                                .size(width = if (i == step) 24.dp else 8.dp, height = 8.dp)
-                                .clip(CircleShape)
-                                .background(if (i <= step) cs.primary else cs.surfaceVariant)
-                        )
-                    }
-                }
-                TextButton(onClick = { finish(false) }) { Text("Skip") }
+                LinearWavyProgressIndicator(
+                    progress = { (step + 1f) / STEPS },
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.width(12.dp))
+                ExpTextButton(onClick = { finish(false) }) { Text("Skip") }
             }
 
-            Crossfade(step, modifier = Modifier.weight(1f), label = "step") { s ->
+            AnimatedContent(
+                step,
+                modifier = Modifier.weight(1f),
+                transitionSpec = {
+                    val dir = if (targetState > initialState) 1 else -1
+                    (slideInHorizontally(spatial) { it / 8 * dir } + fadeIn(effects)) togetherWith
+                        (slideOutHorizontally(spatial) { -it / 8 * dir } + fadeOut(effects))
+                },
+                label = "step"
+            ) { s ->
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 24.dp)) {
                     val icon = when (s) {
                         0 -> R.drawable.ic_dpm_mark
                         1, 4 -> R.drawable.ic_settings
                         else -> R.drawable.ic_apps
                     }
-                    Surface(shape = CircleShape, color = cs.primaryContainer) {
+                    val badge = when (s) {
+                        0 -> MaterialShapes.Cookie12Sided
+                        1 -> MaterialShapes.Cookie9Sided
+                        2 -> MaterialShapes.Sunny
+                        3 -> MaterialShapes.Clover4Leaf
+                        4 -> MaterialShapes.Flower
+                        else -> MaterialShapes.Cookie6Sided
+                    }
+                    Surface(shape = badge.toShape(), color = cs.primaryContainer) {
                         Icon(
                             painterResource(icon),
                             null,
                             tint = cs.onPrimaryContainer,
-                            modifier = Modifier.padding(20.dp).size(40.dp)
+                            modifier = Modifier.padding(26.dp).size(44.dp)
                         )
                     }
                     Spacer(Modifier.height(24.dp))
@@ -112,7 +131,7 @@ fun Onboarding(ui: UiState, onDone: () -> Unit) {
                                 Status(true)
                             } else {
                                 Status(false)
-                                Button(onClick = { notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }) { Text("Allow notifications") }
+                                ExpButton(onClick = { notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }) { Text("Allow notifications") }
                             }
                         }
                         2 -> {
@@ -120,7 +139,7 @@ fun Onboarding(ui: UiState, onDone: () -> Unit) {
                             Body("Lets the app see which app or game is on screen. Without it, only music and video are shown.")
                             Status(usage)
                             if (!usage) {
-                                Button(onClick = { ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }) { Text("Open settings") }
+                                ExpButton(onClick = { ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }) { Text("Open settings") }
                             }
                         }
                         3 -> {
@@ -128,7 +147,7 @@ fun Onboarding(ui: UiState, onDone: () -> Unit) {
                             Body("Lets the app read what music or video is playing, including the title, artist and cover.")
                             Status(listener)
                             if (!listener) {
-                                Button(onClick = { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }) { Text("Open settings") }
+                                ExpButton(onClick = { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }) { Text("Open settings") }
                             }
                         }
                         4 -> {
@@ -136,7 +155,7 @@ fun Onboarding(ui: UiState, onDone: () -> Unit) {
                             Body("Android can stop apps in the background. Allow background activity, and let presence start by itself after a restart.")
                             Status(battery)
                             if (!battery) {
-                                Button(onClick = {
+                                ExpButton(onClick = {
                                     ctx.startActivity(
                                         Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}"))
                                     )
@@ -150,7 +169,7 @@ fun Onboarding(ui: UiState, onDone: () -> Unit) {
                             Body("To show app icons and cover art, create a free application in Discord's developer portal and paste its Application ID here. Pictures are uploaded from your phone to that application.")
                             Field("Application ID", ui.appId) { v -> ui.setAppId(v.filter { it.isDigit() }.take(25)) }
                             Spacer(Modifier.height(8.dp))
-                            OutlinedButton(onClick = {
+                            ExpOutlinedButton(onClick = {
                                 ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://discord.com/developers/applications")))
                             }) { Text("Open developer portal") }
                         }
@@ -159,12 +178,12 @@ fun Onboarding(ui: UiState, onDone: () -> Unit) {
             }
 
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (step > 0) TextButton(onClick = { step-- }) { Text("Back") }
+                if (step > 0) ExpTextButton(onClick = { step-- }) { Text("Back") }
                 Spacer(Modifier.weight(1f))
                 if (step < STEPS - 1) {
-                    FilledTonalButton(onClick = { step++ }) { Text("Next") }
+                    ExpTonalButton(onClick = { step++ }) { Text("Next") }
                 } else {
-                    Button(onClick = { finish(true) }) { Text("Start sharing") }
+                    ExpButton(onClick = { finish(true) }) { Text("Start sharing") }
                 }
             }
         }
@@ -173,7 +192,7 @@ fun Onboarding(ui: UiState, onDone: () -> Unit) {
 
 @Composable
 private fun Head(t: String) {
-    Text(t, style = MaterialTheme.typography.headlineMedium)
+    Text(t, style = MaterialTheme.typography.headlineMediumEmphasized)
     Spacer(Modifier.height(12.dp))
 }
 

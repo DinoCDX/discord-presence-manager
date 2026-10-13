@@ -24,9 +24,18 @@ class Info(
     val end: Long? = null,
     val pkg: String? = null,
     val artUri: String? = null,
-    val bitmap: Bitmap? = null
+    val bitmap: Bitmap? = null,
+    val source: String = "",
+    val link: String? = null,
+    val buttons: List<Pair<String, String>> = emptyList(),
+    val largeFile: String? = null,
+    val smallFile: String? = null
 ) {
     val key: String get() = "$name|$details|$state"
+
+    fun copyWithButtons(buttons: List<Pair<String, String>>) = Info(
+        type, name, details, state, album, start, end, pkg, artUri, bitmap, source, link, buttons, largeFile, smallFile
+    )
 }
 
 object Dynamic {
@@ -42,33 +51,86 @@ object Dynamic {
     fun staticInfo(c: Context): Info? {
         val name = Store.get(c, "s_name", "").trim()
         if (name.isEmpty()) return null
-        val timer = Store.get(c, "s_timer", "0") == "1"
+        val mode = Store.get(c, "s_tmode", if (Store.get(c, "s_timer", "0") == "1") "up" else "off")
         val started = Store.get(c, "s_started", "0").toLongOrNull() ?: 0L
+        val end = Store.get(c, "s_end", "0").toLongOrNull() ?: 0L
+        val btns = listOf(
+            Store.get(c, "s_b1l", "").trim() to Store.get(c, "s_b1u", "").trim(),
+            Store.get(c, "s_b2l", "").trim() to Store.get(c, "s_b2u", "").trim()
+        ).filter { it.first.isNotEmpty() && it.second.startsWith("http") }
         return Info(
             type = Store.get(c, "s_type", "0").toIntOrNull() ?: 0,
             name = name,
             details = Store.get(c, "s_details", "").trim().ifEmpty { null },
             state = Store.get(c, "s_state", "").trim().ifEmpty { null },
-            start = if (timer && started > 0L) started else null
+            start = if (mode == "up" && started > 0L) started else null,
+            end = if (mode == "down" && end > System.currentTimeMillis()) end else null,
+            buttons = btns,
+            largeFile = Store.get(c, "s_large", "").ifEmpty { null },
+            smallFile = Store.get(c, "s_small", "").ifEmpty { null }
         )
     }
+
+    /** What each source found on the last check, for the status card. Null means nothing from that source. */
+    @Volatile
+    var found: Map<String, Info?> = emptyMap()
+        private set
+
+    /** Source that won on the last check, or null. */
+    @Volatile
+    var winner: String? = null
+        private set
 
     @Synchronized
     fun current(c: Context): Info? {
         val fg = Foreground.pkg(c)
-        return media(c, fg) ?: app(c, fg)
+        val out = LinkedHashMap<String, Info?>()
+        var pick: Info? = null
+        for (k in Sources.order(c)) {
+            if (!Sources.enabled(c, k)) continue
+            val i = when (k) {
+                Sources.MUSIC -> media(c, fg)
+                Sources.GAME -> app(c, fg, true)
+                else -> app(c, fg, false)
+            }
+            out[k] = i
+            if (pick == null && i != null) pick = i
+        }
+        found = out
+        winner = pick?.source
+        return pick?.let { it.copyWithButtons(buttonsFor(c, it)) }
+    }
+
+    private fun buttonsFor(c: Context, i: Info): List<Pair<String, String>> {
+        val list = ArrayList<Pair<String, String>>()
+        if (i.source == Sources.MUSIC && Store.get(c, "btn_video", "1") == "1") {
+            val url = i.link?.takeIf { it.startsWith("http") } ?: run {
+                val q = listOfNotNull(i.state, i.details).joinToString(" ").trim()
+                if (q.isEmpty()) null else "https://www.youtube.com/results?search_query=" + java.net.URLEncoder.encode(q, "UTF-8")
+            }
+            if (url != null) list.add("Watch on YouTube" to url)
+        }
+        if (Store.get(c, "btn_repo", "1") == "1") list.add("Get DPM" to Updater.REPO_URL)
+        return list.take(2)
     }
 
     fun toJson(c: Context, i: Info): JSONObject {
         val o = JSONObject().put("name", i.name).put("type", i.type)
         i.details?.let { o.put("details", it) }
         i.state?.let { o.put("state", it) }
-        if (i.start != null) {
-            val ts = JSONObject().put("start", i.start)
+        if (i.start != null || i.end != null) {
+            val ts = JSONObject()
+            i.start?.let { ts.put("start", it) }
             i.end?.let { ts.put("end", it) }
             o.put("timestamps", ts)
         }
-        if (i.pkg != null && Store.get(c, "show_art", "1") == "1") {
+        if (i.buttons.isNotEmpty()) {
+            o.put("buttons", JSONArray(i.buttons.map { it.first }))
+            o.put("metadata", JSONObject().put("button_urls", JSONArray(i.buttons.map { it.second })))
+            val app = Art.appId(c)
+            if (app.isNotEmpty()) o.put("application_id", app)
+        }
+        if ((i.pkg != null || i.largeFile != null || i.smallFile != null) && Store.get(c, "show_art", "1") == "1") {
             val token = Store.token(c)
             if (token != null) addAssets(c, o, i, token)
         }
@@ -76,7 +138,7 @@ object Dynamic {
     }
 
     private fun addAssets(c: Context, o: JSONObject, i: Info, token: String) {
-        val r = Art.resolve(c, token, i) ?: return
+        val r = (if (i.pkg != null) Art.resolve(c, token, i) else Art.resolveStatic(c, token, i)) ?: return
         val assets = JSONObject().put("large_image", r.big)
         (i.album ?: i.details)?.let { assets.put("large_text", it) }
         r.small?.let { assets.put("small_image", it).put("small_text", i.name) }
@@ -173,14 +235,16 @@ object Dynamic {
                 end = if (dur > 0) start + dur else null,
                 pkg = pkg,
                 artUri = uri,
-                bitmap = bmp
+                bitmap = bmp,
+                source = Sources.MUSIC,
+                link = md.getString(MediaMetadata.METADATA_KEY_MEDIA_URI)
             )
         } catch (e: SecurityException) {
             null
         }
     }
 
-    private fun app(c: Context, pkg: String?): Info? {
+    private fun app(c: Context, pkg: String?, wantGame: Boolean): Info? {
         if (pkg == null) {
             lastPkg = ""
             return null
@@ -196,6 +260,7 @@ object Dynamic {
         val all = Store.get(c, "all_apps", "0") == "1"
         val auto = Store.get(c, "auto_apps", "1") == "1" && Apps.autoShow(pkg, cat)
         val game = cat == ApplicationInfo.CATEGORY_GAME
+        if (game != wantGame) return null
         if (!game && !picked && !all && !auto) return null
         if (pkg != lastPkg) {
             lastPkg = pkg
@@ -208,7 +273,8 @@ object Dynamic {
             details = custom?.details ?: Apps.def(pkg)?.details,
             state = custom?.state,
             start = since,
-            pkg = pkg
+            pkg = pkg,
+            source = if (wantGame) Sources.GAME else Sources.APP
         )
     }
 }
