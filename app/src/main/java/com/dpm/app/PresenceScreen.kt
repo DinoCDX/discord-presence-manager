@@ -116,87 +116,20 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
                 "Allow notifications"
             ) { launcher.launch(Manifest.permission.POST_NOTIFICATIONS) }
         }
-
         if (rejected) {
             Banner(
                 "Discord signed you out",
                 "Your login is no longer valid, so nothing can be shown. Log in again to continue.",
                 "Log in again"
             ) {
-                ctx.startActivity(
-                    android.content.Intent(ctx, LoginActivity::class.java).putExtra("add", true)
-                )
+                ctx.startActivity(android.content.Intent(ctx, LoginActivity::class.java).putExtra("add", true))
             }
         }
+        UpdateBanner()
 
-        var dismissedTag by remember { mutableStateOf(Store.get(ctx, "upd_dismissed", "")) }
-        when (val u = Updater.state) {
-            is UpdateState.Available -> if (dismissedTag != u.tag) Banner(
-                "Update ${u.tag}",
-                "A new version of DPM is available.",
-                "Download",
-                onDismiss = {
-                    Store.put(ctx, "upd_dismissed", u.tag)
-                    dismissedTag = u.tag
-                }
-            ) { Updater.download(ctx) }
-            is UpdateState.Ready -> if (dismissedTag != u.tag) Banner(
-                "Update ${u.tag} is ready",
-                "It has been downloaded and checked.",
-                "Install",
-                onDismiss = {
-                    Store.put(ctx, "upd_dismissed", u.tag)
-                    dismissedTag = u.tag
-                }
-            ) { ctx.activity()?.let { Updater.install(it) } }
-            else -> {}
-        }
+        HeroCard(ui, ui.running && gate == null && live != null, gate, live != null)
 
-        val liveNow = ui.running && gate == null && live != null
-        val fade = MaterialTheme.motionScheme.defaultEffectsSpec<Color>()
-        val heroBg by animateColorAsState(if (liveNow) cs.primaryContainer else cs.surfaceContainer, fade, label = "heroBg")
-        val heroTitle by animateColorAsState(if (liveNow) cs.onPrimaryContainer else cs.onSurface, fade, label = "heroTitle")
-        val heroSub by animateColorAsState(if (liveNow) cs.onPrimaryContainer else cs.onSurfaceVariant, fade, label = "heroSub")
-        Card(
-            modifier = Modifier.fillMaxWidth().spatialSize(),
-            shape = MaterialTheme.shapes.extraLargeIncreased,
-            colors = CardDefaults.cardColors(containerColor = heroBg)
-        ) {
-            Column(Modifier.padding(24.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Share my presence", style = MaterialTheme.typography.titleLargeEmphasized, color = heroTitle)
-                        Text(
-                            when {
-                                !ui.running -> "Off"
-                                gate != null -> gate!!
-                                live != null -> "Live on Discord"
-                                else -> "On, nothing to show right now"
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = heroSub
-                        )
-                    }
-                    Switch(
-                        checked = ui.running,
-                        onCheckedChange = { ui.setRunning(it) },
-                        thumbContent = if (ui.running) {
-                            { Icon(Icons.Default.Check, null, Modifier.size(SwitchDefaults.IconSize)) }
-                        } else {
-                            null
-                        }
-                    )
-                }
-                AnimatedVisibility(ui.running) {
-                    ExpTonalButton(
-                        onClick = { ui.setPaused(!ui.paused) },
-                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
-                    ) { Text(if (ui.paused) "Resume" else "Pause") }
-                }
-            }
-        }
-
-        SectionCard("What Discord shows") {
+        SectionCard("Preview") {
             PresenceCard(
                 info = live,
                 now = now,
@@ -215,12 +148,18 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
                 StaticEditor(ui, now)
             } else {
                 Text(
-                    "Follows what you are doing. Pick apps in the Apps tab.",
+                    "Follows what you are doing. Pick which apps are allowed in the Apps tab.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = cs.onSurfaceVariant
                 )
-                ToggleRow("Show images", "App icon and cover art", ui.images) { ui.setImages(it) }
-                ExpOutlinedButton(onClick = openApps, modifier = Modifier.fillMaxWidth()) { Text("Manage apps") }
+                ExpOutlinedButton(onClick = openApps, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    Text("Manage apps")
+                }
+                ToggleRow(
+                    "Use static when nothing is playing",
+                    "Your static status shows when no app or media is active",
+                    ui.fallbackStatic
+                ) { ui.switchFallback(it) }
             }
         }
 
@@ -228,71 +167,153 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
             SourcesCard(ui, found, winner, live = ui.running && gate == null)
         }
 
-        SectionCard("Schedule", Modifier.spatialSize()) {
-            ToggleRow(
-                "Only share at set times",
-                if (ui.schedOn) "Outside these times nothing is shown" else "Presence is shared whenever it is on",
-                ui.schedOn
-            ) { ui.setSchedOn(it) }
-            AnimatedVisibility(ui.schedOn) {
-                Column {
-                    if (ui.windows.isEmpty()) {
-                        Text(
-                            "No times yet, so nothing will be shared. Add one below.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = cs.error
-                        )
+        OptionsCard(ui)
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun UpdateBanner() {
+    val ctx = LocalContext.current
+    var dismissedTag by remember { mutableStateOf(Store.get(ctx, "upd_dismissed", "")) }
+    when (val u = Updater.state) {
+        is UpdateState.Available -> if (dismissedTag != u.tag) Banner(
+            "Update ${u.tag}",
+            "A new version of DPM is available.",
+            "Download",
+            onDismiss = {
+                Store.put(ctx, "upd_dismissed", u.tag)
+                dismissedTag = u.tag
+            }
+        ) { Updater.download(ctx) }
+        is UpdateState.Ready -> if (dismissedTag != u.tag) Banner(
+            "Update ${u.tag} is ready",
+            "It has been downloaded and checked.",
+            "Install",
+            onDismiss = {
+                Store.put(ctx, "upd_dismissed", u.tag)
+                dismissedTag = u.tag
+            }
+        ) { ctx.activity()?.let { Updater.install(it) } }
+        else -> {}
+    }
+}
+
+@Composable
+private fun HeroCard(ui: UiState, liveNow: Boolean, gate: String?, hasLive: Boolean) {
+    val cs = MaterialTheme.colorScheme
+    val fade = MaterialTheme.motionScheme.defaultEffectsSpec<Color>()
+    val heroBg by animateColorAsState(if (liveNow) cs.primaryContainer else cs.surfaceContainer, fade, label = "heroBg")
+    val heroTitle by animateColorAsState(if (liveNow) cs.onPrimaryContainer else cs.onSurface, fade, label = "heroTitle")
+    val heroSub by animateColorAsState(if (liveNow) cs.onPrimaryContainer else cs.onSurfaceVariant, fade, label = "heroSub")
+    Card(
+        modifier = Modifier.fillMaxWidth().spatialSize(),
+        shape = MaterialTheme.shapes.extraLargeIncreased,
+        colors = CardDefaults.cardColors(containerColor = heroBg)
+    ) {
+        Column(Modifier.padding(24.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Share my presence", style = MaterialTheme.typography.titleLargeEmphasized, color = heroTitle)
+                    Text(
+                        when {
+                            !ui.running -> "Off"
+                            gate != null -> gate
+                            hasLive -> "Live on Discord"
+                            else -> "On, nothing to show right now"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = heroSub
+                    )
+                }
+                Switch(
+                    checked = ui.running,
+                    onCheckedChange = { ui.setRunning(it) },
+                    thumbContent = if (ui.running) {
+                        { Icon(Icons.Default.Check, null, Modifier.size(SwitchDefaults.IconSize)) }
+                    } else {
+                        null
                     }
-                    var editing by remember { mutableStateOf<Int?>(null) }
-                    var adding by remember { mutableStateOf(false) }
-                    ui.windows.forEachIndexed { i, w ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(Schedule.daysLabel(w.days), style = MaterialTheme.typography.bodyLarge)
-                                Text(
-                                    "${Schedule.clock(w.start)} to ${Schedule.clock(w.end)}" +
-                                        if (w.end < w.start) " (next day)" else "",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = cs.onSurfaceVariant
-                                )
-                            }
-                            IconButton(onClick = { editing = i }) { Icon(Icons.Default.Edit, "Edit") }
-                            IconButton(onClick = { ui.setWindows(ui.windows.filterIndexed { j, _ -> j != i }) }) {
-                                Icon(Icons.Default.Close, "Remove")
-                            }
-                        }
-                    }
-                    ExpTextButton(onClick = { adding = true }) {
-                        Icon(Icons.Default.Add, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Add time window")
-                    }
-                    if (adding) {
-                        WindowDialog(null, { adding = false }) { w ->
-                            ui.setWindows(ui.windows + w)
-                            adding = false
-                        }
-                    }
-                    editing?.let { idx ->
-                        ui.windows.getOrNull(idx)?.let { cur ->
-                            WindowDialog(cur, { editing = null }) { w ->
-                                ui.setWindows(ui.windows.mapIndexed { j, o -> if (j == idx) w else o })
-                                editing = null
-                            }
-                        }
-                    }
+                )
+            }
+            AnimatedVisibility(ui.running) {
+                ExpTonalButton(
+                    onClick = { ui.setPaused(!ui.paused) },
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                ) { Text(if (ui.paused) "Resume" else "Pause") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OptionsCard(ui: UiState) {
+    SectionCard("Options", Modifier.spatialSize()) {
+        ToggleRow(
+            "Only at set times",
+            if (ui.schedOn) "Outside these times nothing is shown" else "Shared whenever it is on",
+            ui.schedOn
+        ) { ui.setSchedOn(it) }
+        AnimatedVisibility(ui.schedOn) {
+            ScheduleList(ui)
+        }
+        ToggleRow(
+            "Only when Discord status is Online",
+            "Nothing is shown while you are Idle, Do Not Disturb or Invisible",
+            ui.onlyOnline
+        ) { ui.setOnlyOnline(it) }
+    }
+}
+
+@Composable
+private fun ScheduleList(ui: UiState) {
+    val cs = MaterialTheme.colorScheme
+    var editing by remember { mutableStateOf<Int?>(null) }
+    var adding by remember { mutableStateOf(false) }
+    Column {
+        if (ui.windows.isEmpty()) {
+            Text(
+                "No times yet, so nothing will be shared.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = cs.error
+            )
+        }
+        ui.windows.forEachIndexed { i, w ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(Schedule.daysLabel(w.days), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "${Schedule.clock(w.start)} to ${Schedule.clock(w.end)}" +
+                            if (w.end < w.start) " (next day)" else "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = cs.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = { editing = i }) { Icon(Icons.Default.Edit, "Edit") }
+                IconButton(onClick = { ui.setWindows(ui.windows.filterIndexed { j, _ -> j != i }) }) {
+                    Icon(Icons.Default.Close, "Remove")
                 }
             }
         }
-
-        SectionCard("Options") {
-            ToggleRow(
-                "Only when my Discord status is Online",
-                "Nothing is shown while your status is Idle, Do Not Disturb or Invisible",
-                ui.onlyOnline
-            ) { ui.setOnlyOnline(it) }
+        ExpTextButton(onClick = { adding = true }) {
+            Icon(Icons.Default.Add, null)
+            Spacer(Modifier.width(8.dp))
+            Text("Add time window")
         }
-        Spacer(Modifier.height(8.dp))
+    }
+    if (adding) {
+        WindowDialog(null, { adding = false }) { w ->
+            ui.setWindows(ui.windows + w)
+            adding = false
+        }
+    }
+    editing?.let { idx ->
+        ui.windows.getOrNull(idx)?.let { cur ->
+            WindowDialog(cur, { editing = null }) { w ->
+                ui.setWindows(ui.windows.mapIndexed { j, o -> if (j == idx) w else o })
+                editing = null
+            }
+        }
     }
 }
 

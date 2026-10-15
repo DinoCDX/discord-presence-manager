@@ -104,7 +104,9 @@ class PresenceService : Service() {
         }
         alive = true
         startFg(buildNotification(null, "Starting", null))
+        GatewayClient.defaultAppId = Art.appId(this)
         GatewayClient.connect(token)
+
         last = ""
         notifKey = ""
         if (job?.isActive != true) {

@@ -2,8 +2,6 @@ package com.dpm.app
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -35,7 +33,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,9 +43,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private const val LIMIT = 128
 
@@ -68,7 +62,7 @@ fun StaticEditor(ui: UiState, now: Long) {
 
         PresetsRow(ui)
 
-        TypeChips(ui.sType) { ui.sType = it }
+        TypeDropdown(ui.sType) { ui.sType = it }
         Field(
             "Name",
             ui.sName,
@@ -84,7 +78,7 @@ fun StaticEditor(ui: UiState, now: Long) {
         }
         if (ui.appId.isBlank()) {
             Text(
-                "Images and buttons need an application ID (Settings).",
+                "Images and buttons need a Discord app of yours (Settings).",
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant
             )
@@ -99,6 +93,28 @@ fun StaticEditor(ui: UiState, now: Long) {
         if (ui.sName.isNotEmpty() || ui.sDetails.isNotEmpty() || ui.sState.isNotEmpty()) {
             ExpTextButton(onClick = { ui.clearStatic() }, modifier = Modifier.align(Alignment.End)) {
                 Text("Clear text")
+            }
+        }
+    }
+}
+
+@Composable
+private fun TypeDropdown(selected: Int, onSelect: (Int) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val index = ActivityTypeVals.indexOf(selected).coerceAtLeast(0)
+    Box {
+        ExpOutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth()) {
+            Text(ActivityTypeNames[index])
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            ActivityTypeVals.forEachIndexed { i, t ->
+                DropdownMenuItem(
+                    text = { Text(ActivityTypeNames[i]) },
+                    onClick = {
+                        onSelect(t)
+                        open = false
+                    }
+                )
             }
         }
     }
@@ -146,39 +162,47 @@ private fun PresetsRow(ui: UiState) {
 
 @Composable
 private fun ImagePick(label: String, file: String, onPicked: (String) -> Unit) {
-    val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
     val cs = MaterialTheme.colorScheme
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            scope.launch {
-                val name = withContext(Dispatchers.IO) { StaticFiles.save(ctx, uri) }
-                if (name != null) onPicked(name) else ctx.toast("Could not use that picture")
-            }
-        }
-    }
-    val bmp by produceState<Bitmap?>(null, file) {
-        value = withContext(Dispatchers.IO) {
-            StaticFiles.file(ctx, file)?.let { BitmapFactory.decodeFile(it.path) }
-        }
-    }
+    var linking by remember { mutableStateOf(false) }
+    val isLink = file.startsWith("https://")
+    val bmp = rememberPicture(file)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier.size(88.dp).clip(MaterialTheme.shapes.large).background(cs.surfaceContainerHigh)
-                .clickable { launcher.launch("image/*") },
+                .clickable { linking = true },
             contentAlignment = Alignment.Center
         ) {
             val b = bmp
-            if (b != null) {
-                Image(b.asImageBitmap(), null, Modifier.size(88.dp), contentScale = ContentScale.Crop)
-            } else {
-                Icon(Icons.Default.Add, "Pick $label image", tint = cs.onSurfaceVariant)
+            when {
+                b != null -> Image(b.asImageBitmap(), null, Modifier.size(88.dp), contentScale = ContentScale.Crop)
+                isLink -> Text("Link", style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
+                else -> Icon(Icons.Default.Add, "Add $label image link", tint = cs.onSurfaceVariant)
             }
         }
         Text(label, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 4.dp))
-        if (file.isNotEmpty()) {
-            ExpTextButton(onClick = { onPicked("") }) { Text("Remove") }
+        Row {
+            ExpTextButton(onClick = { linking = true }) { Text("Link") }
+            if (file.isNotEmpty()) {
+                ExpTextButton(onClick = { onPicked("") }) { Text("Remove") }
+            }
         }
+    }
+    if (linking) {
+        var url by remember { mutableStateOf(if (isLink) file else "") }
+        AlertDialog(
+            onDismissRequest = { linking = false },
+            title = { Text("$label image link") },
+            text = {
+                Field("Image URL", url, hint = "Public https:// link to a picture") { url = it.trim() }
+            },
+            confirmButton = {
+                ExpButton(enabled = url.startsWith("https://"), onClick = {
+                    onPicked(url)
+                    linking = false
+                }) { Text("Save") }
+            },
+            dismissButton = { ExpTextButton(onClick = { linking = false }) { Text("Cancel") } }
+        )
     }
 }
 

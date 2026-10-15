@@ -1,57 +1,48 @@
 package com.dpm.app
 
-import android.util.Base64
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 object Api {
-    const val BASE = "https://discord.com/api/v9"
-    const val BUILD = 290000
-    const val UA =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    const val BASE = "https://discord.com/api/v10"
+    const val UA = "Discord-Android/260000;RNA"
 
-    private val client = OkHttpClient()
-    private val jsonType = "application/json".toMediaType()
-
-    private val superProps: String by lazy {
-        val o = JSONObject()
-            .put("os", "Windows")
-            .put("browser", "Chrome")
-            .put("device", "")
-            .put("system_locale", "en-US")
-            .put("browser_user_agent", UA)
-            .put("browser_version", "124.0.0.0")
-            .put("os_version", "10")
-            .put("referrer", "")
-            .put("referring_domain", "")
-            .put("release_channel", "stable")
-            .put("client_build_number", BUILD)
-        Base64.encodeToString(o.toString().toByteArray(), Base64.NO_WRAP)
-    }
+    val http: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .build()
+    private val jsonType = "application/json; charset=utf-8".toMediaType()
 
     class Resp(val code: Int, val body: String) {
         fun obj(): JSONObject = try { JSONObject(body) } catch (e: Exception) { JSONObject() }
+    }
+
+    fun authHeader(token: String): String {
+        val t = token.trim()
+
+        if (t.startsWith("Token ", ignoreCase = true)) return t.substring(6).trim()
+        return if (t.startsWith("Bearer ", ignoreCase = true) || t.startsWith("Bot ", ignoreCase = true)) t else "Bearer $t"
     }
 
     private fun base(path: String, token: String?): Request.Builder {
         val b = Request.Builder()
             .url(BASE + path)
             .header("User-Agent", UA)
-            .header("X-Super-Properties", superProps)
             .header("X-Discord-Locale", "en-US")
-            .header("Origin", "https://discord.com")
-            .header("Referer", "https://discord.com/channels/@me")
-        if (token != null) b.header("Authorization", token)
+        if (!token.isNullOrEmpty()) {
+            b.header("Authorization", authHeader(token))
+        }
         return b
     }
 
     private fun exec(req: Request): Resp =
         try {
-            client.newCall(req).execute().use { Resp(it.code, it.body?.string() ?: "") }
+            http.newCall(req).execute().use { Resp(it.code, it.body?.string() ?: "") }
         } catch (e: IOException) {
             Resp(-1, e.message ?: "network error")
         }

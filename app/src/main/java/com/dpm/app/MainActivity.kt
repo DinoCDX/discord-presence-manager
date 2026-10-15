@@ -1,20 +1,19 @@
 package com.dpm.app
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
-import android.os.PersistableBundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -55,12 +54,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        if (Store.token(this) == null) {
+        ui = UiState(this)
+        if (Store.token(this) == null && ui.onboarded) {
             go(Intent(this, LoginActivity::class.java))
             finish()
             return
         }
-        ui = UiState(this)
         Updater.autoCheck(applicationContext)
 
         setContent {
@@ -115,11 +114,12 @@ class MainActivity : ComponentActivity() {
                         Text(
                             titles[tab],
                             style = MaterialTheme.typography.headlineMediumEmphasized,
+                            maxLines = 1,
                             modifier = Modifier.weight(1f)
                         )
                         if (tab == 0) {
                             val up = conn.startsWith("Connected")
-                            StatusPill(up, if (up) "Connected" else conn)
+                            StatusPill(up, if (up) "Connected" else conn, Modifier.widthIn(max = 200.dp))
                         }
                     }
                     if (tab == 1) {
@@ -151,6 +151,17 @@ class MainActivity : ComponentActivity() {
                 }
             }
         ) { pad ->
+            Box(Modifier.fillMaxSize()) {
+            DecorBackground(
+                scrollY = {
+                    when (pager.currentPage) {
+                        0 -> presenceScroll.value.toFloat()
+                        1 -> appsList.firstVisibleItemIndex * 220f + appsList.firstVisibleItemScrollOffset
+                        else -> settingsScroll.value.toFloat()
+                    }
+                },
+                pageX = { pager.currentPage + pager.currentPageOffsetFraction }
+            )
             HorizontalPager(
                 state = pager,
                 modifier = Modifier.padding(pad).consumeWindowInsets(pad).imePadding(),
@@ -164,11 +175,11 @@ class MainActivity : ComponentActivity() {
                         onSwitch = { switchTo(it) },
                         onRemove = { removeAccount(it) },
                         onAdd = { go(Intent(this@MainActivity, LoginActivity::class.java).putExtra("add", true)) },
-                        onCopyToken = { copyToken(it) },
                         onReplayIntro = { ui.setOnboarded(false) },
                         scroll = settingsScroll
                     )
                 }
+            }
             }
         }
     }
@@ -197,16 +208,5 @@ class MainActivity : ComponentActivity() {
             go(Intent(this, LoginActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
             finish()
         }
-    }
-
-    private fun copyToken(tk: String) {
-        val clip = ClipData.newPlainText("token", tk)
-        if (Build.VERSION.SDK_INT >= 33) {
-            clip.description.extras = PersistableBundle().apply {
-                putBoolean("android.content.extra.IS_SENSITIVE", true)
-            }
-        }
-        getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
-        toast("Token copied")
     }
 }

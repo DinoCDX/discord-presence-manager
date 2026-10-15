@@ -50,6 +50,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -116,7 +117,7 @@ fun SectionCard(title: String? = null, modifier: Modifier = Modifier, content: @
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.9f))
     ) {
         Column(Modifier.padding(20.dp)) {
             if (title != null) {
@@ -318,19 +319,19 @@ fun AppIcon(pkg: String, size: Dp, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun StatusPill(up: Boolean, label: String) {
+fun StatusPill(up: Boolean, label: String, modifier: Modifier = Modifier) {
     val cs = MaterialTheme.colorScheme
     val spec = MaterialTheme.motionScheme.defaultEffectsSpec<Color>()
     val container by animateColorAsState(if (up) cs.primaryContainer else cs.surfaceContainerHigh, spec, label = "pillBg")
     val dot by animateColorAsState(if (up) cs.primary else cs.outline, spec, label = "pillDot")
     val text by animateColorAsState(if (up) cs.onPrimaryContainer else cs.onSurfaceVariant, spec, label = "pillText")
     Row(
-        Modifier.clip(CircleShape).background(container).padding(horizontal = 14.dp, vertical = 8.dp),
+        modifier.clip(CircleShape).background(container).padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(Modifier.size(8.dp).clip(CircleShape).background(dot))
         Spacer(Modifier.width(8.dp))
-        Text(label, style = MaterialTheme.typography.labelLargeEmphasized, color = text, maxLines = 1)
+        Text(label, style = MaterialTheme.typography.labelLargeEmphasized, color = text, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

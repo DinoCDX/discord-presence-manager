@@ -51,13 +51,17 @@ class UiState(private val c: Context) {
         private set
     @set:JvmName("assignAllApps") var allApps by mutableStateOf(false)
         private set
-    @set:JvmName("assignImages") var images by mutableStateOf(true)
+    @set:JvmName("assignImages") var images by mutableStateOf(false)
         private set
     @set:JvmName("assignOnlyOnline") var onlyOnline by mutableStateOf(false)
         private set
     @set:JvmName("assignBootStart") var bootStart by mutableStateOf(true)
         private set
     @set:JvmName("assignAppId") var appId by mutableStateOf("")
+        private set
+    var apps by mutableStateOf(listOf<DiscordApp>())
+        private set
+    var hasUploadToken by mutableStateOf(false)
         private set
 
     @set:JvmName("assignSchedOn") var schedOn by mutableStateOf(false)
@@ -75,9 +79,13 @@ class UiState(private val c: Context) {
     var customs by mutableStateOf(mapOf<String, Custom>())
 
     var themeMode by mutableStateOf("system")
-    @set:JvmName("assignDyn") var dyn by mutableStateOf(true)
-        private set
     @set:JvmName("assignOnboarded") var onboarded by mutableStateOf(true)
+        private set
+
+    var devMode by mutableStateOf(false)
+        private set
+
+    var fallbackStatic by mutableStateOf(false)
         private set
 
     var permTick by mutableIntStateOf(0)
@@ -113,10 +121,12 @@ class UiState(private val c: Context) {
         mode = Presence.mode(c)
         autoApps = flag("auto_apps", true)
         allApps = flag("all_apps", false)
-        images = flag("show_art", true)
+        images = flag("show_art", false)
         onlyOnline = flag("only_online", false)
         bootStart = flag("boot_start", true)
-        appId = Store.get(c, "app_id", "")
+        apps = Store.apps(c)
+        hasUploadToken = Store.get(c, "upload_token", "").isNotEmpty()
+        appId = Store.activeApp(c)?.id.orEmpty()
         schedOn = Schedule.on(c)
         windows = Schedule.windows(c)
         srcOrder = Sources.order(c)
@@ -125,10 +135,11 @@ class UiState(private val c: Context) {
         ignoreApps = Store.pkgs(c, "ignore_apps")
         customs = Customs.all(c)
         themeMode = Store.get(c, "theme", "system")
-        dyn = false
         onboarded = flag("onboarded", false)
         btnVideo = flag("btn_video", true)
         btnRepo = flag("btn_repo", true)
+        devMode = flag("dev_mode", false)
+        fallbackStatic = flag("static_fallback", false)
     }
 
     fun setRunning(on: Boolean) {
@@ -203,7 +214,6 @@ class UiState(private val c: Context) {
         saveStatic()
     }
 
-    /** Sets the elapsed timer to have started today at the given time (yesterday if that is still ahead). */
     fun setStartedAt(hour: Int, minute: Int) {
         val cal = java.util.Calendar.getInstance()
         cal.set(java.util.Calendar.HOUR_OF_DAY, hour)
@@ -297,7 +307,6 @@ class UiState(private val c: Context) {
         PresenceService.kick()
     }
 
-    /** Move a source up (-1) or down (+1) in the priority list. */
     fun moveSource(k: String, by: Int) {
         val list = srcOrder.toMutableList()
         val i = list.indexOf(k)
@@ -319,9 +328,35 @@ class UiState(private val c: Context) {
     fun setOnlyOnline(v: Boolean) { onlyOnline = v; put("only_online", v); PresenceService.kick() }
     fun setBootStart(v: Boolean) { bootStart = v; put("boot_start", v) }
 
-    fun setAppId(v: String) {
-        appId = v
-        Store.put(c, "app_id", v.trim())
+    fun addApp(id: String, name: String) {
+        if (!Art.validId(id)) return
+        val list = Store.apps(c)
+        if (list.none { it.id == id }) Store.saveApps(c, list + DiscordApp(id, name.trim()))
+        setActiveApp(id)
+    }
+
+    fun setActiveApp(id: String) {
+        Store.put(c, "active_app", id)
+        apps = Store.apps(c)
+        appId = id
+        Art.reset()
+        PresenceService.kick()
+    }
+
+    fun setUploadToken(v: String) {
+        val t = v.trim()
+        Store.put(c, "upload_token", t)
+        hasUploadToken = t.isNotEmpty()
+        Art.reset()
+        PresenceService.kick()
+    }
+
+    fun removeApp(id: String) {
+        val rest = Store.apps(c).filter { it.id != id }
+        Store.saveApps(c, rest)
+        if (appId == id) Store.put(c, "active_app", rest.firstOrNull()?.id.orEmpty())
+        apps = rest
+        appId = Store.activeApp(c)?.id.orEmpty()
         Art.reset()
         PresenceService.kick()
     }
@@ -368,6 +403,9 @@ class UiState(private val c: Context) {
     }
 
     fun setTheme(v: String) { themeMode = v; Store.put(c, "theme", v) }
-    fun setDyn(v: Boolean) { dyn = false }
+    fun switchDevMode(v: Boolean) { devMode = v; put("dev_mode", v) }
+
+    fun switchFallback(v: Boolean) { fallbackStatic = v; put("static_fallback", v); PresenceService.kick() }
+
     fun setOnboarded(v: Boolean) { onboarded = v; put("onboarded", v) }
 }

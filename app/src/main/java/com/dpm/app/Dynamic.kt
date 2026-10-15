@@ -71,12 +71,10 @@ object Dynamic {
         )
     }
 
-    /** What each source found on the last check, for the status card. Null means nothing from that source. */
     @Volatile
     var found: Map<String, Info?> = emptyMap()
         private set
 
-    /** Source that won on the last check, or null. */
     @Volatile
     var winner: String? = null
         private set
@@ -98,7 +96,8 @@ object Dynamic {
         }
         found = out
         winner = pick?.source
-        return pick?.let { it.copyWithButtons(buttonsFor(c, it)) }
+        pick?.let { return it.copyWithButtons(buttonsFor(c, it)) }
+        return if (Store.get(c, "static_fallback", "0") == "1") staticInfo(c) else null
     }
 
     private fun buttonsFor(c: Context, i: Info): List<Pair<String, String>> {
@@ -115,7 +114,9 @@ object Dynamic {
     }
 
     fun toJson(c: Context, i: Info): JSONObject {
+        val app = Art.appId(c)
         val o = JSONObject().put("name", i.name).put("type", i.type)
+        if (Art.validId(app)) o.put("application_id", app)
         i.details?.let { o.put("details", it) }
         i.state?.let { o.put("state", it) }
         if (i.start != null || i.end != null) {
@@ -125,25 +126,18 @@ object Dynamic {
             o.put("timestamps", ts)
         }
         if (i.buttons.isNotEmpty()) {
-            o.put("buttons", JSONArray(i.buttons.map { it.first }))
-            o.put("metadata", JSONObject().put("button_urls", JSONArray(i.buttons.map { it.second })))
-            val app = Art.appId(c)
-            if (app.isNotEmpty()) o.put("application_id", app)
+            o.put("buttons", JSONArray(i.buttons.map { JSONObject().put("label", it.first).put("url", it.second) }))
         }
-        if ((i.pkg != null || i.largeFile != null || i.smallFile != null) && Store.get(c, "show_art", "1") == "1") {
-            val token = Store.token(c)
-            if (token != null) addAssets(c, o, i, token)
-        }
+        if (Store.get(c, "show_art", "0") == "1") addAssets(c, o, i)
         return o
     }
 
-    private fun addAssets(c: Context, o: JSONObject, i: Info, token: String) {
-        val r = (if (i.pkg != null) Art.resolve(c, token, i) else Art.resolveStatic(c, token, i)) ?: return
+    private fun addAssets(c: Context, o: JSONObject, i: Info) {
+        val r = (if (i.pkg != null) Art.resolve(c, i) else Art.resolveStatic(c, i)) ?: return
         val assets = JSONObject().put("large_image", r.big)
         (i.album ?: i.details)?.let { assets.put("large_text", it) }
         r.small?.let { assets.put("small_image", it).put("small_text", i.name) }
         o.put("assets", assets)
-        o.put("application_id", Art.appId(c))
     }
 
     private fun appLabel(c: Context, pkg: String): String =

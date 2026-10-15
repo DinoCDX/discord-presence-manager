@@ -11,7 +11,6 @@ import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.widget.RemoteViews
 
-/** Turns presence on or off from outside the app (Quick Settings tile, home widget). */
 object Toggle {
     const val ACTION = "com.dpm.app.TOGGLE"
 

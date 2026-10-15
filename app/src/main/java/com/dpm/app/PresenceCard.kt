@@ -40,9 +40,10 @@ fun PresenceCard(info: Info?, now: Long, empty: String, imagesOn: Boolean, hasAp
         Text(empty, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
         return
     }
+    val isStatic = info.pkg == null
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
-            "${Presence.verb(info.type)} ${info.name}",
+            if (isStatic) Presence.verb(info.type) else "${Presence.verb(info.type)} ${info.name}",
             style = MaterialTheme.typography.labelLargeEmphasized,
             color = cs.onSurfaceVariant
         )
@@ -53,11 +54,14 @@ fun PresenceCard(info: Info?, now: Long, empty: String, imagesOn: Boolean, hasAp
             }
             Column(Modifier.weight(1f)) {
                 Text(
-                    info.details ?: info.name,
+                    if (isStatic) info.name else info.details ?: info.name,
                     style = MaterialTheme.typography.titleMediumEmphasized,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (isStatic && !info.details.isNullOrBlank()) {
+                    Text(info.details, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
                 if (!info.state.isNullOrBlank()) {
                     Text(info.state, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
@@ -107,7 +111,7 @@ fun PresenceCard(info: Info?, now: Long, empty: String, imagesOn: Boolean, hasAp
 
         if (imagesOn && (info.pkg != null || info.largeFile != null || info.smallFile != null) && !hasAppId) {
             Text(
-                "Discord shows text only. Add an application ID in Settings to send images.",
+                "Discord shows text only. Add one of your Discord apps in Settings to send images.",
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant
             )
@@ -118,16 +122,8 @@ fun PresenceCard(info: Info?, now: Long, empty: String, imagesOn: Boolean, hasAp
 @Composable
 private fun StaticArtBox(info: Info) {
     val ctx = LocalContext.current
-    val big by produceState<Bitmap?>(null, info.largeFile) {
-        value = withContext(Dispatchers.IO) {
-            StaticFiles.file(ctx, info.largeFile.orEmpty())?.let { android.graphics.BitmapFactory.decodeFile(it.path) }
-        }
-    }
-    val small by produceState<Bitmap?>(null, info.smallFile) {
-        value = withContext(Dispatchers.IO) {
-            StaticFiles.file(ctx, info.smallFile.orEmpty())?.let { android.graphics.BitmapFactory.decodeFile(it.path) }
-        }
-    }
+    val big = rememberPicture(info.largeFile.orEmpty())
+    val small = rememberPicture(info.smallFile.orEmpty())
     val main = big ?: small
     val badge = if (big != null) small else null
     Box(Modifier.size(80.dp)) {

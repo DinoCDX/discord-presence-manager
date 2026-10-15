@@ -2,45 +2,54 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Setup · DPM</title>
-<meta name="description" content="Install DPM and start sharing.">
-<meta name="theme-color" content="#18181b">
+<meta name="description" content="Install DPM, log in and start sharing.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#4752c4">
+<meta property="og:title" content="Setup · DPM">
+<meta property="og:description" content="Install DPM, log in and start sharing.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://dinocdx.github.io/discord-presence-manager/assets/icon-512.png">
 <link rel="icon" type="image/png" href="assets/favicon.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
+<a class="skip" href="#content">Skip to content</a>
+<div class="progress" aria-hidden="true"><span></span></div>
 <header class="site"><div class="bar">
 <a class="brand" href="index.html"><img src="assets/favicon.png" alt="" width="32" height="32">DPM</a>
-<nav class="main"><a href="index.html">Home</a><a href="getting-started.html" aria-current="page">Setup</a><a href="features.html">Features</a><a href="permissions.html">Permissions</a><a href="images.html">Images</a><a href="troubleshooting.html">Troubleshooting</a></nav>
+<nav class="top" aria-label="Pages"><a href="index.html">Home</a><a href="getting-started.html" aria-current="page">Setup</a><a href="features.html">Features</a><a href="permissions.html">Permissions</a><a href="images.html">Images</a><a href="troubleshooting.html">Troubleshooting</a><a href="build.html">Build</a></nav>
 </div></header>
-<main>
-<h1 class="page">Getting set up</h1>
-<p class="sub">It takes a few minutes, and most of it is tapping through permission screens.</p>
-
+<main id="content">
+<header class="page-head"><span class="badge" aria-hidden="true"><svg viewBox="0 0 200 200"><path d="M192.0 100.0 L191.8 103.6 L191.4 107.2 L190.6 110.7 L189.5 114.2 L188.1 117.5 L186.5 120.8 L184.7 123.9 L182.7 126.9 L180.5 129.7 L178.2 132.4 L175.8 135.0 L173.4 137.4 L170.9 139.7 L168.5 142.0 L166.0 144.1 L163.7 146.3 L161.3 148.3 L159.0 150.4 L156.8 152.5 L154.6 154.6 L152.5 156.8 L150.4 159.0 L148.3 161.3 L146.3 163.7 L144.1 166.0 L142.0 168.5 L139.7 170.9 L137.4 173.4 L135.0 175.8 L132.4 178.2 L129.7 180.5 L126.9 182.7 L123.9 184.7 L120.8 186.5 L117.5 188.1 L114.2 189.5 L110.7 190.6 L107.2 191.4 L103.6 191.8 L100.0 192.0 L96.4 191.8 L92.8 191.4 L89.3 190.6 L85.8 189.5 L82.5 188.1 L79.2 186.5 L76.1 184.7 L73.1 182.7 L70.3 180.5 L67.6 178.2 L65.0 175.8 L62.6 173.4 L60.3 170.9 L58.0 168.5 L55.9 166.0 L53.7 163.7 L51.7 161.3 L49.6 159.0 L47.5 156.8 L45.4 154.6 L43.2 152.5 L41.0 150.4 L38.7 148.3 L36.3 146.3 L34.0 144.1 L31.5 142.0 L29.1 139.7 L26.6 137.4 L24.2 135.0 L21.8 132.4 L19.5 129.7 L17.3 126.9 L15.3 123.9 L13.5 120.8 L11.9 117.5 L10.5 114.2 L9.4 110.7 L8.6 107.2 L8.2 103.6 L8.0 100.0 L8.2 96.4 L8.6 92.8 L9.4 89.3 L10.5 85.8 L11.9 82.5 L13.5 79.2 L15.3 76.1 L17.3 73.1 L19.5 70.3 L21.8 67.6 L24.2 65.0 L26.6 62.6 L29.1 60.3 L31.5 58.0 L34.0 55.9 L36.3 53.7 L38.7 51.7 L41.0 49.6 L43.2 47.5 L45.4 45.4 L47.5 43.2 L49.6 41.0 L51.7 38.7 L53.7 36.3 L55.9 34.0 L58.0 31.5 L60.3 29.1 L62.6 26.6 L65.0 24.2 L67.6 21.8 L70.3 19.5 L73.1 17.3 L76.1 15.3 L79.2 13.5 L82.5 11.9 L85.8 10.5 L89.3 9.4 L92.8 8.6 L96.4 8.2 L100.0 8.0 L103.6 8.2 L107.2 8.6 L110.7 9.4 L114.2 10.5 L117.5 11.9 L120.8 13.5 L123.9 15.3 L126.9 17.3 L129.7 19.5 L132.4 21.8 L135.0 24.2 L137.4 26.6 L139.7 29.1 L142.0 31.5 L144.1 34.0 L146.3 36.3 L148.3 38.7 L150.4 41.0 L152.5 43.2 L154.6 45.4 L156.8 47.5 L159.0 49.6 L161.3 51.7 L163.7 53.7 L166.0 55.9 L168.5 58.0 L170.9 60.3 L173.4 62.6 L175.8 65.0 L178.2 67.6 L180.5 70.3 L182.7 73.1 L184.7 76.1 L186.5 79.2 L188.1 82.5 L189.5 85.8 L190.6 89.3 L191.4 92.8 L191.8 96.4 Z"/></svg><span class="badge-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="currentColor"/></svg></span></span><div><h1 class="page">Getting set up</h1><p class="sub">It takes a few minutes, and most of it is tapping through permission screens.</p></div></header>
 <ol class="steps">
-<li>Grab the APK from the <a href="https://github.com/DinoCDX/discord-presence-manager/releases/latest">latest release</a> and open it. The first time, Android will ask if your browser or file manager is allowed to install apps. Say yes.</li>
-<li>Log in. The <em>Browser</em> option is the easiest because it uses Discord's own login page, so captchas, two-factor codes and passkeys all work. <em>Token</em> and <em>QR</em> are there if you'd rather use those.</li>
-<li>Click through the intro and allow what you're comfortable with. You can skip any of it and change your mind later. There's a <a href="permissions.html">rundown of each permission</a>.</li>
+<li>Download the APK from the <a href="https://github.com/DinoCDX/discord-presence-manager/releases/latest">latest release</a> and open it. The first time, Android asks whether your browser or file manager may install apps. Allow it.</li>
+<li>Open DPM. The first screens are the intro, then <em>Log in with Discord</em>. Tap <em>Continue with Discord</em>. You approve DPM on Discord's own login page, so captchas, two-factor codes and passkeys all work.</li>
+<li>Go through the permissions page and allow what you're comfortable with. Every permission can be skipped and changed later. The <a href="permissions.html">permissions page</a> explains each one.</li>
 <li>On the Presence tab, switch on <strong>Share my presence</strong>.</li>
-<li>Over on the Apps tab, pick which apps are allowed to show up.</li>
-<li>If you want app icons and cover art, follow the <a href="images.html">images guide</a>. It's optional.</li>
+<li>On the Apps tab, choose which apps are allowed to show up.</li>
+<li>Want album art or app icons? That's optional. See the <a href="images.html">images guide</a>.</li>
 </ol>
 
-<h2>Finding your way around</h2>
-<table>
-<tr><th>Tab</th><th>What's in it</th></tr>
-<tr><td>Presence</td><td>The on/off switch and pause button, a live preview, dynamic or static mode, your schedule and the online-only option.</td></tr>
-<tr><td>Apps</td><td>Every app on your phone, with search. Allow or ignore each one, or give it custom text.</td></tr>
-<tr><td>Settings</td><td>Accounts, theme, images, background options, updates and your token.</td></tr>
-</table>
+<h2 class="section-title">Finding your way around</h2>
+<div class="grid three">
+<div class="card"><span class="card-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 5H11A7 7 0 0 1 11 19H6.5Z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="11.5" cy="12" r="2.2" fill="currentColor"/></svg></span><h3>Presence</h3><p>The on/off switch and pause button, a live preview, dynamic or static mode, your schedule and the online-only option.</p></div>
+<div class="card"><span class="card-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h4V4H4V8zM10 20h4v-4h-4V20zM4 20h4v-4H4V20zM4 14h4v-4H4V14zM10 14h4v-4h-4V14zM16 4v4h4V4H16zM10 8h4V4h-4V8zM16 14h4v-4h-4V14zM16 20h4v-4h-4V20z" fill="currentColor"/></svg></span><h3>Apps</h3><p>Every app on your phone, with search. Choose whether each one shows, is hidden, or gets its own text.</p></div>
+<div class="card"><span class="card-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v2h6v-2L3 17zM3 5v2h10L13 5L3 5zM13 21v-2h8v-2h-8v-2h-2v6h2zM7 9v2L3 11v2h4v2h2L9 9L7 9zM21 13v-2L11 11v2h10zM15 9h2L17 7h4L21 5h-4L17 3h-2v6z" fill="currentColor"/></svg></span><h3>Settings</h3><p>Accounts, appearance, presence options, pictures, updates and About. Tap the version on About seven times to unlock developer options.</p></div>
+</div>
 
-<p>While DPM is running you'll see a notification with Pause and Stop buttons, so you can control it without opening the app.</p>
+<div class="banner info"><p>While DPM is running you'll see a notification with <strong>Pause</strong> and <strong>Stop</strong> buttons, so you can control it without opening the app.</p></div>
+
 </main>
+<nav class="bottom" aria-label="Pages"><a href="index.html" class="tab"><span class="ind"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="currentColor"/></svg></span><span class="lbl">Home</span></a><a href="getting-started.html" class="tab" aria-current="page"><span class="ind"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="currentColor"/></svg></span><span class="lbl">Setup</span></a><a href="features.html" class="tab"><span class="ind"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 5H11A7 7 0 0 1 11 19H6.5Z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="11.5" cy="12" r="2.2" fill="currentColor"/></svg></span><span class="lbl">Features</span></a><a href="troubleshooting.html" class="tab"><span class="ind"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z" fill="currentColor"/></svg></span><span class="lbl">Help</span></a><details class="more tab"><summary><span class="ind"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" fill="currentColor"/></svg></span><span class="lbl">More</span></summary><div class="sheet"><a href="permissions.html">Permissions</a><a href="images.html">Images</a><a href="build.html">Build</a></div></details></nav>
 <footer class="site"><div class="bar">
 <span>DPM (Discord Presence Manager) isn't affiliated with Discord.</span>
-<a href="https://github.com/DinoCDX/discord-presence-manager">Source on GitHub</a>
+<span class="links"><a href="https://github.com/DinoCDX/discord-presence-manager/releases/latest">Latest release</a><a href="https://github.com/DinoCDX/discord-presence-manager">Source on GitHub</a></span>
 </div></footer>
+<script>
+addEventListener("scroll",function(){var h=document.documentElement;var m=h.scrollHeight-h.clientHeight;h.style.setProperty("--p",(m>0?h.scrollTop/m:0).toFixed(4));},{passive:true});
+</script>
 </body>
 </html>

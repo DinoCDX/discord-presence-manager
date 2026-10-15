@@ -2,40 +2,36 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Permissions · DPM</title>
 <meta name="description" content="What DPM asks for and why.">
-<meta name="theme-color" content="#18181b">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#4752c4">
+<meta property="og:title" content="Permissions · DPM">
+<meta property="og:description" content="What DPM asks for and why.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://dinocdx.github.io/discord-presence-manager/assets/icon-512.png">
 <link rel="icon" type="image/png" href="assets/favicon.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
+<a class="skip" href="#content">Skip to content</a>
+<div class="progress" aria-hidden="true"><span></span></div>
 <header class="site"><div class="bar">
 <a class="brand" href="index.html"><img src="assets/favicon.png" alt="" width="32" height="32">DPM</a>
-<nav class="main"><a href="index.html">Home</a><a href="getting-started.html">Setup</a><a href="features.html">Features</a><a href="permissions.html" aria-current="page">Permissions</a><a href="images.html">Images</a><a href="troubleshooting.html">Troubleshooting</a></nav>
+<nav class="top" aria-label="Pages"><a href="index.html">Home</a><a href="getting-started.html">Setup</a><a href="features.html">Features</a><a href="permissions.html" aria-current="page">Permissions</a><a href="images.html">Images</a><a href="troubleshooting.html">Troubleshooting</a><a href="build.html">Build</a></nav>
 </div></header>
-<main>
-<h1 class="page">Permissions</h1>
-<p class="sub">DPM asks for quite a few things. Here's what each one is for, and what happens if you say no.</p>
-
-<table>
-<tr><th>Permission</th><th>What it's for</th><th>If you skip it</th></tr>
-<tr><td>Internet</td><td>Talking to Discord and GitHub.</td><td>Nothing works without it.</td></tr>
-<tr><td>Notifications</td><td>The notification with Pause and Stop.</td><td>Sharing still works, you just lose the quick buttons.</td></tr>
-<tr><td>Usage access</td><td>Seeing which app or game is on screen.</td><td>Only music and video will show.</td></tr>
-<tr><td>Notification access</td><td>Reading the title, artist and cover of what's playing.</td><td>DPM can't tell when media is playing.</td></tr>
-<tr><td>Battery optimization</td><td>Stopping Android from putting DPM to sleep.</td><td>Presence may drop out when the phone sits idle.</td></tr>
-<tr><td>Start at boot</td><td>Bringing presence back after a restart.</td><td>You'll need to open the app yourself after rebooting.</td></tr>
-<tr><td>Installed apps</td><td>Building the Apps tab and showing icons.</td><td>You lose per-app control.</td></tr>
-<tr><td>Install packages</td><td>Installing updates you've downloaded.</td><td>You can still update by installing the APK by hand.</td></tr>
-</table>
-
-<p>Your token stays on the phone in encrypted storage, and the only place it's ever sent is Discord.</p>
+<main id="content">
+<header class="page-head"><span class="badge" aria-hidden="true"><svg viewBox="0 0 200 200"><path d="M196.6 100.0 L196.0 103.8 L194.4 107.4 L192.1 110.9 L189.5 114.2 L187.0 117.3 L185.2 120.5 L184.2 123.7 L184.0 127.3 L184.4 131.1 L185.0 135.2 L185.4 139.4 L185.3 143.5 L184.2 147.2 L182.2 150.4 L179.2 152.9 L175.6 154.9 L171.7 156.5 L167.9 158.0 L164.5 159.7 L161.8 161.8 L159.7 164.5 L158.0 167.9 L156.5 171.7 L154.9 175.6 L152.9 179.2 L150.4 182.2 L147.2 184.2 L143.5 185.3 L139.4 185.4 L135.2 185.0 L131.1 184.4 L127.3 184.0 L123.7 184.2 L120.5 185.2 L117.3 187.0 L114.2 189.5 L110.9 192.1 L107.4 194.4 L103.8 196.0 L100.0 196.6 L96.2 196.0 L92.6 194.4 L89.1 192.1 L85.8 189.5 L82.7 187.0 L79.5 185.2 L76.3 184.2 L72.7 184.0 L68.9 184.4 L64.8 185.0 L60.6 185.4 L56.5 185.3 L52.8 184.2 L49.6 182.2 L47.1 179.2 L45.1 175.6 L43.5 171.7 L42.0 167.9 L40.3 164.5 L38.2 161.8 L35.5 159.7 L32.1 158.0 L28.3 156.5 L24.4 154.9 L20.8 152.9 L17.8 150.4 L15.8 147.2 L14.7 143.5 L14.6 139.4 L15.0 135.2 L15.6 131.1 L16.0 127.3 L15.8 123.7 L14.8 120.5 L13.0 117.3 L10.5 114.2 L7.9 110.9 L5.6 107.4 L4.0 103.8 L3.4 100.0 L4.0 96.2 L5.6 92.6 L7.9 89.1 L10.5 85.8 L13.0 82.7 L14.8 79.5 L15.8 76.3 L16.0 72.7 L15.6 68.9 L15.0 64.8 L14.6 60.6 L14.7 56.5 L15.8 52.8 L17.8 49.6 L20.8 47.1 L24.4 45.1 L28.3 43.5 L32.1 42.0 L35.5 40.3 L38.2 38.2 L40.3 35.5 L42.0 32.1 L43.5 28.3 L45.1 24.4 L47.1 20.8 L49.6 17.8 L52.8 15.8 L56.5 14.7 L60.6 14.6 L64.8 15.0 L68.9 15.6 L72.7 16.0 L76.3 15.8 L79.5 14.8 L82.7 13.0 L85.8 10.5 L89.1 7.9 L92.6 5.6 L96.2 4.0 L100.0 3.4 L103.8 4.0 L107.4 5.6 L110.9 7.9 L114.2 10.5 L117.3 13.0 L120.5 14.8 L123.7 15.8 L127.3 16.0 L131.1 15.6 L135.2 15.0 L139.4 14.6 L143.5 14.7 L147.2 15.8 L150.4 17.8 L152.9 20.8 L154.9 24.4 L156.5 28.3 L158.0 32.1 L159.7 35.5 L161.8 38.2 L164.5 40.3 L167.9 42.0 L171.7 43.5 L175.6 45.1 L179.2 47.1 L182.2 49.6 L184.2 52.8 L185.3 56.5 L185.4 60.6 L185.0 64.8 L184.4 68.9 L184.0 72.7 L184.2 76.3 L185.2 79.5 L187.0 82.7 L189.5 85.8 L192.1 89.1 L194.4 92.6 L196.0 96.2 Z"/></svg><span class="badge-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v2h6v-2L3 17zM3 5v2h10L13 5L3 5zM13 21v-2h8v-2h-8v-2h-2v6h2zM7 9v2L3 11v2h4v2h2L9 9L7 9zM21 13v-2L11 11v2h10zM15 9h2L17 7h4L21 5h-4L17 3h-2v6z" fill="currentColor"/></svg></span></span><div><h1 class="page">Permissions</h1><p class="sub">DPM asks for quite a few things. Here's what each one is for, and what happens if you say no.</p></div></header><div class="perm-list"><article class="card perm"><div class="perm-top"><h2>Internet</h2><span class="chip solid">Required</span></div><p>Talking to Discord and GitHub.</p><p class="skip-note"><strong>If you skip it:</strong> Nothing works without it.</p></article><article class="card perm"><div class="perm-top"><h2>Notification access</h2><span class="chip tonal">Recommended</span></div><p>Reading the title, artist and cover of what&#x27;s playing.</p><p class="skip-note"><strong>If you skip it:</strong> DPM can&#x27;t tell when media is playing.</p></article><article class="card perm"><div class="perm-top"><h2>Usage access</h2><span class="chip tonal">Recommended</span></div><p>Seeing which app or game is on screen.</p><p class="skip-note"><strong>If you skip it:</strong> Only music and video will show.</p></article><article class="card perm"><div class="perm-top"><h2>Background activity</h2><span class="chip tonal">Recommended</span></div><p>Stopping Android from putting DPM to sleep while presence is on.</p><p class="skip-note"><strong>If you skip it:</strong> Presence may drop out when the phone sits idle.</p></article><article class="card perm"><div class="perm-top"><h2>Installed apps</h2><span class="chip tonal">Recommended</span></div><p>Building the Apps tab and showing icons.</p><p class="skip-note"><strong>If you skip it:</strong> You lose per-app control.</p></article><article class="card perm"><div class="perm-top"><h2>Notifications</h2><span class="chip outline">Optional</span></div><p>The notification with Pause and Stop.</p><p class="skip-note"><strong>If you skip it:</strong> Sharing still works, you just lose the quick buttons.</p></article><article class="card perm"><div class="perm-top"><h2>Start at boot</h2><span class="chip outline">Optional</span></div><p>Bringing presence back after a restart. Turn it on under Settings, Presence.</p><p class="skip-note"><strong>If you skip it:</strong> You&#x27;ll need to open the app yourself after rebooting.</p></article><article class="card perm"><div class="perm-top"><h2>Install packages</h2><span class="chip outline">Optional</span></div><p>Installing updates you&#x27;ve downloaded.</p><p class="skip-note"><strong>If you skip it:</strong> You can still update by installing the APK by hand.</p></article></div><div class="card"><p>Your login stays on the phone in encrypted storage, and the only place it's ever sent is Discord.</p></div>
 </main>
+<nav class="bottom" aria-label="Pages"><a href="index.html" class="tab"><span class="ind"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="currentColor"/></svg></span><span class="lbl">Home</span></a><a href="getting-started.html" class="tab"><span class="ind"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="currentColor"/></svg></span><span class="lbl">Setup</span></a><a href="features.html" class="tab"><span class="ind"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 5H11A7 7 0 0 1 11 19H6.5Z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="11.5" cy="12" r="2.2" fill="currentColor"/></svg></span><span class="lbl">Features</span></a><a href="troubleshooting.html" class="tab"><span class="ind"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z" fill="currentColor"/></svg></span><span class="lbl">Help</span></a><details class="more tab is-active"><summary><span class="ind"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" fill="currentColor"/></svg></span><span class="lbl">More</span></summary><div class="sheet"><a href="permissions.html" aria-current="page">Permissions</a><a href="images.html">Images</a><a href="build.html">Build</a></div></details></nav>
 <footer class="site"><div class="bar">
 <span>DPM (Discord Presence Manager) isn't affiliated with Discord.</span>
-<a href="https://github.com/DinoCDX/discord-presence-manager">Source on GitHub</a>
+<span class="links"><a href="https://github.com/DinoCDX/discord-presence-manager/releases/latest">Latest release</a><a href="https://github.com/DinoCDX/discord-presence-manager">Source on GitHub</a></span>
 </div></footer>
+<script>
+addEventListener("scroll",function(){var h=document.documentElement;var m=h.scrollHeight-h.clientHeight;h.style.setProperty("--p",(m>0?h.scrollTop/m:0).toFixed(4));},{passive:true});
+</script>
 </body>
 </html>

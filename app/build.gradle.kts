@@ -2,7 +2,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
@@ -16,6 +15,13 @@ android {
         targetSdk = 34
         versionCode = (System.getenv("VERSION_CODE") ?: "10301").toInt()
         versionName = System.getenv("VERSION_NAME") ?: "1.3.1"
+
+        // Discord OAuth needs the Application ID at build time, because the redirect scheme
+        // (discord-<APP_ID>) is registered in the manifest. Set DISCORD_APP_ID or -PdiscordAppId=...
+        val discordAppId = (System.getenv("DISCORD_APP_ID") ?: (project.findProperty("discordAppId") as String?) ?: "")
+            .trim()
+        resValue("string", "discord_oauth_app_id", discordAppId)
+        manifestPlaceholders["discordScheme"] = "discord-" + discordAppId.ifEmpty { "unset" }
     }
 
     val keystorePath = System.getenv("KEYSTORE_PATH")
@@ -46,6 +52,8 @@ android {
 
     buildFeatures {
         compose = true
+        // The Discord Application ID is written to a string resource from defaultConfig.
+        resValues = true
     }
 }
 
@@ -70,7 +78,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
-    implementation("com.google.zxing:core:3.5.3")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }

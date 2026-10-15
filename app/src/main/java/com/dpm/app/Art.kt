@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 
@@ -13,12 +14,24 @@ object Art {
 
     private class Entry(val r: Resolved?, val at: Long)
 
+    const val DEFAULT_IMAGE_URL = "https://raw.githubusercontent.com/DinoCDX/discord-presence-manager/main/docs/assets/icon-512.png"
+    const val NEED_TOKEN = "Add your Discord login token in Settings to upload pictures"
     private const val RETRY_MS = 120_000L
     private const val MAX_ASSETS = 280
     private const val SIZE = 512
 
     private val cache = ConcurrentHashMap<String, Entry>()
     private val ids = ConcurrentHashMap<String, String>()
+    private val externalPaths = ConcurrentHashMap<String, String>()
+    private val extLock = Any()
+    private const val EXT_KEY = "external_paths"
+    private const val EXT_MAX = 400
+    private const val EXT_TTL_MS = 7L * 24 * 60 * 60 * 1000
+    @Volatile
+    private var extLoaded = false
+    @Volatile
+    private var extBlockedUntil = 0L
+    private val idPattern = Regex("\\d{17,20}")
 
     @Volatile
     private var loadedFor = ""
@@ -27,7 +40,19 @@ object Art {
     var status: String = ""
         private set
 
-    fun appId(c: Context): String = Store.get(c, "app_id", "").trim()
+    fun validId(s: String): Boolean = idPattern.matches(s)
+
+    fun appId(c: Context): String {
+        val stored = Store.activeApp(c)?.id.orEmpty()
+        if (validId(stored)) return stored
+        val built = DiscordOAuth.clientId(c)
+        return if (validId(built)) built else ""
+    }
+
+    fun ownAppId(c: Context): String {
+        val stored = Store.activeApp(c)?.id.orEmpty()
+        return if (validId(stored)) stored else ""
+    }
 
     fun reset() {
         cache.clear()
@@ -53,18 +78,26 @@ object Art {
         return h.toString()
     }
 
-    private fun explain(code: Int): String = when (code) {
-        -1 -> "No connection"
-        404 -> "Application not found. Check the ID."
-        401, 403 -> "Not allowed. The application must belong to the logged in account."
-        else -> "Discord error $code"
+    private fun explain(code: Int, body: String): String {
+        val detail = body.replace('\n', ' ').take(160)
+        val what = when (code) {
+            -1 -> "No connection"
+            404 -> "Application not found. Check the ID."
+            401 -> "The upload token was rejected. Paste a current token in Settings, under Developer."
+            403 -> "That account can't manage this application"
+            else -> "Discord error $code"
+        }
+        return "$what (HTTP $code): $detail"
     }
+
+    private fun blank(): Bitmap = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888)
 
     private fun load(token: String, app: String): Boolean {
         if (loadedFor == app) return true
         val r = Api.call("GET", "/oauth2/applications/$app/assets", token)
         if (r.code != 200) {
-            status = explain(r.code)
+            status = explain(r.code, r.body)
+            Logs.add("assets list ${r.code} ${r.body.take(300)}")
             return false
         }
         ids.clear()
@@ -100,10 +133,11 @@ object Art {
             "POST",
             "/oauth2/applications/$app/assets",
             token,
-            JSONObject().put("name", name).put("image", data).put("type", "1")
+            JSONObject().put("name", name).put("image", data).put("type", 1)
         )
         if (r.code !in 200..299) {
-            status = "Upload failed. ${explain(r.code)}"
+            status = "Upload failed. ${explain(r.code, r.body)}"
+            Logs.add("asset upload ${r.code} ${r.body.take(300)}")
             return null
         }
         val id = r.obj().optString("id")
@@ -113,65 +147,153 @@ object Art {
         return id
     }
 
-    fun check(c: Context): String {
-        val app = appId(c)
-        val token = Store.token(c) ?: return "Not logged in"
-        if (app.isEmpty()) return "Enter an application ID first"
-        loadedFor = ""
-        return if (load(token, app)) status else status
+    fun assetToken(c: Context): String? {
+        val t = Store.get(c, "upload_token", "").trim().removePrefix("Token ").trim()
+        return if (t.isNotEmpty()) "Token $t" else null
     }
 
-    @Synchronized
-    fun resolve(c: Context, token: String, i: Info): Resolved? {
-        val app = appId(c)
-        val pkg = i.pkg
-        if (app.isEmpty() || pkg == null) return null
-        val k = "$app|$pkg|${i.key}|${sig(i.bitmap)}"
-        val now = System.currentTimeMillis()
-        cache[k]?.let { if (it.r != null || now - it.at < RETRY_MS) return it.r }
-        val r = build(c, token, app, pkg, i.bitmap)
-        cache[k] = Entry(r, now)
-        return r
-    }
+    private fun uploadToken(c: Context): String? = if (ownAppId(c).isEmpty()) null else assetToken(c)
 
-    @Synchronized
-    fun resolveStatic(c: Context, token: String, i: Info): Resolved? {
-        val app = appId(c)
-        if (app.isEmpty()) return null
-        val large = StaticFiles.file(c, i.largeFile.orEmpty())
-        val small = StaticFiles.file(c, i.smallFile.orEmpty())
-        if (large == null && small == null) return null
-        val k = "$app|static|${large?.name}|${large?.length()}|${small?.name}|${small?.length()}"
+    private fun loadExternal(c: Context) {
+        val raw = Store.get(c, EXT_KEY, "")
+        if (raw.isEmpty()) return
         val now = System.currentTimeMillis()
-        cache[k]?.let { if (it.r != null || now - it.at < RETRY_MS) return it.r }
-        val r = if (!load(token, app)) {
-            null
-        } else {
-            val big = large?.let { f -> val b = f.readBytes(); asset(token, app, "st" + sha(b, 24), "image/jpeg") { b } }
-            val sm = small?.let { f -> val b = f.readBytes(); asset(token, app, "st" + sha(b, 24), "image/jpeg") { b } }
-            when {
-                big != null -> Resolved(big, sm)
-                sm != null -> Resolved(sm, null)
-                else -> null
+        try {
+            val o = JSONObject(raw)
+            val keys = o.keys()
+            while (keys.hasNext()) {
+                val k = keys.next()
+                val v = o.optString(k)
+                val at = v.substringBefore('|').toLongOrNull() ?: 0L
+                if (now - at < EXT_TTL_MS) externalPaths[k] = v
             }
+        } catch (e: Exception) {
         }
+    }
+
+    private fun saveExternal(c: Context) {
+        val kept = externalPaths.entries.sortedByDescending { it.value.substringBefore('|').toLongOrNull() ?: 0L }
+            .take(EXT_MAX)
+        externalPaths.keys.retainAll(kept.map { it.key }.toSet())
+        val o = JSONObject()
+        kept.forEach { o.put(it.key, it.value) }
+        Store.put(c, EXT_KEY, o.toString())
+    }
+
+    fun external(c: Context, app: String, url: String): String? {
+        val key = "$app|$url"
+        synchronized(extLock) {
+            if (!extLoaded) {
+                loadExternal(c)
+                extLoaded = true
+            }
+            externalPaths[key]?.let { return it.substringAfter('|') }
+        }
+        if (System.currentTimeMillis() < extBlockedUntil) return null
+        val token = Store.token(c) ?: return null
+        val r = Api.call(
+            "POST",
+            "/applications/$app/external-assets",
+            token,
+            JSONObject().put("urls", JSONArray().put(url))
+        )
+        if (r.code == 429) {
+            val waitMs = (r.obj().optDouble("retry_after", 60.0) * 1000).toLong() + 1000L
+            extBlockedUntil = System.currentTimeMillis() + waitMs
+            Logs.add("external-assets rate limited, pausing for ${waitMs / 1000}s")
+            return null
+        }
+        if (r.code !in 200..299) {
+            Logs.add("external-assets ${r.code} ${r.body.take(300)}")
+            return null
+        }
+        val path = try {
+            JSONArray(r.body).getJSONObject(0).getString("external_asset_path")
+        } catch (e: Exception) {
+            return null
+        }
+        val mp = "mp:$path"
+        synchronized(extLock) {
+            externalPaths[key] = "${System.currentTimeMillis()}|$mp"
+            saveExternal(c)
+        }
+        return mp
+    }
+
+    fun check(c: Context): String {
+        val app = ownAppId(c)
+        if (app.isEmpty()) return "Add a Discord app in Settings first"
+        val token = assetToken(c) ?: run {
+            status = NEED_TOKEN
+            return NEED_TOKEN
+        }
+        loadedFor = ""
+        load(token, app)
+        return status
+    }
+
+    @Synchronized
+    fun resolve(c: Context, i: Info): Resolved? {
+        val app = appId(c)
+        val pkg = i.pkg ?: return null
+        if (!validId(app)) return null
+        val k = "$app|$pkg|${i.key}|${i.artUri}|${sig(i.bitmap)}"
+        val now = System.currentTimeMillis()
+        cache[k]?.let { if (it.r != null || now - it.at < RETRY_MS) return it.r }
+        val r = mediaImages(c, app, pkg, i, uploadToken(c))
         cache[k] = Entry(r, now)
         return r
     }
 
-    private fun build(c: Context, token: String, app: String, pkg: String, cover: Bitmap?): Resolved? {
-        if (!load(token, app)) return null
-        val icon = asset(token, app, "ic" + sha(pkg.toByteArray(), 24), "image/png") {
-            AppIcons.png(AppIcons.render(c, pkg, SIZE) ?: Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888))
+    private fun mediaImages(c: Context, app: String, pkg: String, i: Info, tok: String?): Resolved? {
+        val large = i.artUri?.takeIf { it.startsWith("https://") }?.let { external(c, app, it) }
+            ?: tok?.let { uploadCover(it, app, i.bitmap) }
+            ?: Apps.def(pkg)?.icon?.let { external(c, app, it) }
+            ?: external(c, app, DEFAULT_IMAGE_URL)
+            ?: return null
+        val small = tok?.let { uploadIcon(c, it, app, pkg) }
+        return Resolved(large, small)
+    }
+
+    private fun uploadCover(tok: String, app: String, cover: Bitmap?): String? {
+        if (cover == null || !load(tok, app)) return null
+        val bytes = AppIcons.jpeg(AppIcons.square(cover, SIZE))
+        return asset(tok, app, "art" + sha(bytes, 24), "image/jpeg") { bytes }
+    }
+
+    private fun uploadIcon(c: Context, tok: String, app: String, pkg: String): String? {
+        if (!load(tok, app)) return null
+        return asset(tok, app, "ic" + sha(pkg.toByteArray(), 24), "image/png") {
+            AppIcons.png(AppIcons.render(c, pkg, SIZE) ?: blank())
         }
-        val art = cover?.let { b ->
-            val bytes = AppIcons.jpeg(AppIcons.square(b, SIZE))
-            asset(token, app, "art" + sha(bytes, 24), "image/jpeg") { bytes }
-        }
-        return when {
-            art != null -> Resolved(art, icon)
-            icon != null -> Resolved(icon, null)
-            else -> null
-        }
+    }
+
+    @Synchronized
+    fun resolveStatic(c: Context, i: Info): Resolved? {
+        val app = appId(c)
+        if (!validId(app)) return null
+        val tok = uploadToken(c)
+        val largeName = i.largeFile.orEmpty()
+        val smallName = i.smallFile.orEmpty()
+        val k = "$app|static|$largeName|$smallName|${tok != null}"
+        val now = System.currentTimeMillis()
+        cache[k]?.let { if (it.r != null || now - it.at < RETRY_MS) return it.r }
+        val big = fromLink(c, app, largeName)
+            ?: tok?.let { uploadFile(it, app, StaticFiles.file(c, largeName)) }
+            ?: external(c, app, DEFAULT_IMAGE_URL)
+        val small = fromLink(c, app, smallName)
+            ?: tok?.let { uploadFile(it, app, StaticFiles.file(c, smallName)) }
+        val r = big?.let { Resolved(it, small) }
+        cache[k] = Entry(r, now)
+        return r
+    }
+
+    private fun fromLink(c: Context, app: String, name: String): String? =
+        if (name.startsWith("https://")) external(c, app, name) else null
+
+    private fun uploadFile(tok: String, app: String, f: File?): String? {
+        if (f == null || !load(tok, app)) return null
+        val b = f.readBytes()
+        return asset(tok, app, "st" + sha(b, 24), "image/jpeg") { b }
     }
 }

@@ -10,6 +10,8 @@ import java.util.concurrent.ConcurrentHashMap
 
 class Account(val id: String, val name: String, val token: String)
 
+class DiscordApp(val id: String, val name: String)
+
 object Store {
     private const val ABSENT = "\u0000"
 
@@ -78,28 +80,30 @@ object Store {
 
     fun accounts(c: Context): List<Account> {
         accountList?.let { return it }
-        val legacy = get(c, "token", "")
+
+        drop(c, "token")
         val raw = get(c, "accounts", "")
-        if (legacy.isNotEmpty() && raw.isEmpty()) {
-            val id = get(c, "uid", "").ifEmpty { "legacy" }
-            val acc = Account(id, get(c, "name", "").ifEmpty { "Account" }, legacy)
-            save(c, listOf(acc))
-            drop(c, "token")
-            put(c, "active_id", id)
-            return listOf(acc)
-        }
         if (raw.isEmpty()) return emptyList()
-        return try {
+        val all = try {
             val a = JSONArray(raw)
-            val list = (0 until a.length()).map {
+            (0 until a.length()).map {
                 val o = a.getJSONObject(it)
                 Account(o.getString("id"), o.optString("name", "?"), o.getString("token"))
             }
-            accountList = list
-            list
         } catch (e: Exception) {
-            emptyList()
+            return emptyList()
         }
+        val list = all.filter { get(c, DiscordOAuth.refreshKey(it.id), "").isNotEmpty() }
+        if (list.size != all.size) {
+            save(c, list)
+            if (list.isEmpty()) {
+                drop(c, "active_id", "name", "uid")
+            } else if (get(c, "active_id", "") !in list.map { it.id }) {
+                setActive(c, list[0].id)
+            }
+        }
+        accountList = list
+        return list
     }
 
     fun active(c: Context): Account? {
@@ -115,6 +119,10 @@ object Store {
         put(c, "active_id", a.id)
         put(c, "name", a.name)
         put(c, "uid", a.id)
+    }
+
+    fun updateToken(c: Context, id: String, token: String) {
+        save(c, accounts(c).map { if (it.id == id) Account(it.id, it.name, token) else it })
     }
 
     fun addAccount(c: Context, token: String, name: String, id: String) {
@@ -135,7 +143,35 @@ object Store {
         }
     }
 
-    fun logout(c: Context) {
-        active(c)?.let { removeAccount(c, it.id) }
+    fun apps(c: Context): List<DiscordApp> {
+        val raw = get(c, "apps", "")
+        if (raw.isEmpty()) {
+            val legacy = get(c, "app_id", "").trim()
+            if (!Art.validId(legacy)) return emptyList()
+            val migrated = listOf(DiscordApp(legacy, ""))
+            saveApps(c, migrated)
+            put(c, "active_app", legacy)
+            return migrated
+        }
+        return try {
+            val a = JSONArray(raw)
+            (0 until a.length()).map {
+                val o = a.getJSONObject(it)
+                DiscordApp(o.getString("id"), o.optString("name", ""))
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun saveApps(c: Context, list: List<DiscordApp>) {
+        val a = JSONArray()
+        list.forEach { a.put(JSONObject().put("id", it.id).put("name", it.name)) }
+        put(c, "apps", a.toString())
+    }
+
+    fun activeApp(c: Context): DiscordApp? {
+        val id = get(c, "active_app", "")
+        return apps(c).firstOrNull { it.id == id }
     }
 }

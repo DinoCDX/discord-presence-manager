@@ -13,7 +13,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -37,7 +36,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,13 +44,25 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 
-private const val STEPS = 6
+private const val STEPS = 3
+private const val WELCOME_STEP = 0
+private const val LOGIN_STEP = 1
+private const val PERMISSIONS_STEP = 2
 
 @Composable
 fun Onboarding(ui: UiState, onDone: () -> Unit) {
     val ctx = LocalContext.current
     val cs = MaterialTheme.colorScheme
-    var step by rememberSaveable { mutableIntStateOf(0) }
+    var step by remember {
+        mutableIntStateOf(Store.get(ctx, "onb_step", "0").toIntOrNull()?.coerceIn(0, STEPS - 1) ?: 0)
+    }
+    val active = ui.accounts.firstOrNull { it.id == ui.activeId }
+    val loggedIn = active != null
+
+    fun goTo(n: Int) {
+        step = n
+        Store.put(ctx, "onb_step", n.toString())
+    }
 
     val notif = remember(ui.permTick) { Perms.notifications(ctx) }
     val usage = remember(ui.permTick) { Perms.usage(ctx) }
@@ -67,6 +77,7 @@ fun Onboarding(ui: UiState, onDone: () -> Unit) {
     val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
 
     fun finish(start: Boolean) {
+        Store.put(ctx, "onb_step", "0")
         ui.setOnboarded(true)
         if (start) ui.setRunning(true)
         onDone()
@@ -79,8 +90,10 @@ fun Onboarding(ui: UiState, onDone: () -> Unit) {
                     progress = { (step + 1f) / STEPS },
                     modifier = Modifier.weight(1f)
                 )
-                Spacer(Modifier.width(12.dp))
-                ExpTextButton(onClick = { finish(false) }) { Text("Skip") }
+                if (loggedIn) {
+                    Spacer(Modifier.width(12.dp))
+                    ExpTextButton(onClick = { finish(false) }) { Text("Skip") }
+                }
             }
 
             AnimatedContent(
@@ -95,17 +108,14 @@ fun Onboarding(ui: UiState, onDone: () -> Unit) {
             ) { s ->
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 24.dp)) {
                     val icon = when (s) {
-                        0 -> R.drawable.ic_dpm_mark
-                        1, 4 -> R.drawable.ic_settings
-                        else -> R.drawable.ic_apps
+                        WELCOME_STEP -> R.drawable.ic_dpm_mark
+                        LOGIN_STEP -> R.drawable.ic_presence
+                        else -> R.drawable.ic_settings
                     }
                     val badge = when (s) {
-                        0 -> MaterialShapes.Cookie12Sided
-                        1 -> MaterialShapes.Cookie9Sided
-                        2 -> MaterialShapes.Sunny
-                        3 -> MaterialShapes.Clover4Leaf
-                        4 -> MaterialShapes.Flower
-                        else -> MaterialShapes.Cookie6Sided
+                        WELCOME_STEP -> MaterialShapes.Cookie12Sided
+                        LOGIN_STEP -> MaterialShapes.Clover4Leaf
+                        else -> MaterialShapes.Flower
                     }
                     Surface(shape = badge.toShape(), color = cs.primaryContainer) {
                         Icon(
@@ -117,75 +127,99 @@ fun Onboarding(ui: UiState, onDone: () -> Unit) {
                     }
                     Spacer(Modifier.height(24.dp))
                     when (s) {
-                        0 -> {
+                        WELCOME_STEP -> {
                             Head("Welcome to DPM")
                             Body("DPM (Discord Presence Manager) shows what you're doing on your phone as a Discord activity: music, video, games and apps.")
-                            Body("It needs a few permissions to do that. You can skip any of them and change them later.")
+                            Body("Setup takes about a minute. You'll log in with Discord, then choose the permissions to allow. You can skip any of them and change them later.")
                             Spacer(Modifier.height(12.dp))
                             Body("Sending presence from a user account is against Discord's Terms of Service and can get the account limited or banned. Use an alternate account if you can.")
                         }
-                        1 -> {
-                            Head("Notifications")
-                            Body("A notification shows what is being shared right now and has Pause and Stop buttons, so you stay in control from anywhere.")
-                            if (Build.VERSION.SDK_INT < 33 || notif) {
-                                Status(true)
-                            } else {
-                                Status(false)
-                                ExpButton(onClick = { notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }) { Text("Allow notifications") }
-                            }
-                        }
-                        2 -> {
-                            Head("Usage access")
-                            Body("Lets the app see which app or game is on screen. Without it, only music and video are shown.")
-                            Status(usage)
-                            if (!usage) {
-                                ExpButton(onClick = { ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }) { Text("Open settings") }
-                            }
-                        }
-                        3 -> {
-                            Head("Notification access")
-                            Body("Lets the app read what music or video is playing, including the title, artist and cover.")
-                            Status(listener)
-                            if (!listener) {
-                                ExpButton(onClick = { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }) { Text("Open settings") }
-                            }
-                        }
-                        4 -> {
-                            Head("Keep it running")
-                            Body("Android can stop apps in the background. Allow background activity, and let presence start by itself after a restart.")
-                            Status(battery)
-                            if (!battery) {
-                                ExpButton(onClick = {
-                                    ctx.startActivity(
-                                        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}"))
-                                    )
-                                }) { Text("Allow background activity") }
-                            }
-                            Spacer(Modifier.height(12.dp))
-                            ToggleRow("Start when the phone restarts", null, ui.bootStart) { ui.setBootStart(it) }
-                        }
+                        LOGIN_STEP -> LoginStep(active)
                         else -> {
-                            Head("Images (optional)")
-                            Body("To show app icons and cover art, create a free application in Discord's developer portal and paste its Application ID here. Pictures are uploaded from your phone to that application.")
-                            Field("Application ID", ui.appId) { v -> ui.setAppId(v.filter { it.isDigit() }.take(25)) }
-                            Spacer(Modifier.height(8.dp))
-                            ExpOutlinedButton(onClick = {
-                                ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://discord.com/developers/applications")))
-                            }) { Text("Open developer portal") }
+                            Head("Permissions")
+                            Body("Allow what you're comfortable with. Each one can be changed later.")
+                            PermissionRow(
+                                title = "Notifications",
+                                body = "Shows what is being shared, with Pause and Stop buttons.",
+                                ok = notif || Build.VERSION.SDK_INT < 33,
+                                action = "Allow"
+                            ) { notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }
+                            PermissionRow(
+                                title = "Usage access",
+                                body = "Lets DPM see which app or game is on screen. Without it, only music and video show.",
+                                ok = usage,
+                                action = "Open settings"
+                            ) { ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
+                            PermissionRow(
+                                title = "Notification access",
+                                body = "Lets DPM read the title, artist and cover of what's playing.",
+                                ok = listener,
+                                action = "Open settings"
+                            ) { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                            PermissionRow(
+                                title = "Background activity",
+                                body = "Stops Android from putting DPM to sleep while presence is on.",
+                                ok = battery,
+                                action = "Allow"
+                            ) {
+                                ctx.startActivity(
+                                    Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}"))
+                                )
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            ToggleRow("Start when the phone restarts", null, ui.bootStart) { ui.setBootStart(it) }
                         }
                     }
                 }
             }
 
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (step > 0) ExpTextButton(onClick = { step-- }) { Text("Back") }
+                if (step > 0) ExpTextButton(onClick = { goTo(step - 1) }) { Text("Back") }
                 Spacer(Modifier.weight(1f))
                 if (step < STEPS - 1) {
-                    ExpTonalButton(onClick = { step++ }) { Text("Next") }
+                    ExpTonalButton(enabled = step != LOGIN_STEP || loggedIn, onClick = { goTo(step + 1) }) { Text("Next") }
                 } else {
                     ExpButton(onClick = { finish(true) }) { Text("Start sharing") }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun LoginStep(active: Account?) {
+    val ctx = LocalContext.current
+    val cs = MaterialTheme.colorScheme
+    val configured = DiscordOAuth.isConfigured(ctx)
+    Head("Log in with Discord")
+    Body("You approve DPM on Discord's own page, so captchas, two-factor codes and passkeys all work. DPM never sees your password.")
+    if (active != null) {
+        Surface(
+            Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            color = cs.surfaceContainerHigh
+        ) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Logged in as ${active.name}", style = MaterialTheme.typography.titleMediumEmphasized, color = cs.primary)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "You can add more accounts later in Settings.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = cs.onSurfaceVariant
+                )
+            }
+        }
+    } else {
+        ExpButton(enabled = configured, onClick = { ctx.activity()?.let { DiscordOAuth.start(it) } }) {
+            Text("Continue with Discord")
+        }
+        if (!configured) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "Discord sign-in isn't set up in this build yet.",
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.error
+            )
         }
     }
 }
@@ -210,4 +244,25 @@ private fun Status(ok: Boolean) {
         color = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
         modifier = Modifier.padding(vertical = 8.dp)
     )
+}
+
+@Composable
+private fun PermissionRow(title: String, body: String, ok: Boolean, action: String, onAction: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Surface(
+        Modifier.fillMaxWidth().padding(bottom = 10.dp),
+        shape = MaterialTheme.shapes.large,
+        color = cs.surfaceContainerHigh
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMediumEmphasized)
+            Spacer(Modifier.height(4.dp))
+            Text(body, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Status(ok)
+                Spacer(Modifier.weight(1f))
+                if (!ok) ExpTonalButton(onClick = onAction) { Text(action) }
+            }
+        }
+    }
 }

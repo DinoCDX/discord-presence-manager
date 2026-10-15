@@ -28,10 +28,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 
-/**
- * Turn each source on or off and set which one wins when several are active.
- * The first enabled source with something to show is the one Discord gets.
- */
 @Composable
 fun SourcesCard(ui: UiState, found: Map<String, Info?>, winner: String?, live: Boolean) {
     val cs = MaterialTheme.colorScheme
@@ -46,7 +42,6 @@ fun SourcesCard(ui: UiState, found: Map<String, Info?>, winner: String?, live: B
                 label = "srcRow"
             )
             val fg = if (isWinner) cs.onPrimaryContainer else cs.onSurface
-            val sub = if (isWinner) cs.onPrimaryContainer else cs.onSurfaceVariant
             Row(
                 Modifier
                     .padding(top = 8.dp)

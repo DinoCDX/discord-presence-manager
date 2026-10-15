@@ -1,5 +1,7 @@
 package com.dpm.app
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -11,9 +13,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -26,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -46,259 +51,23 @@ fun SettingsScreen(
     onSwitch: (Account) -> Unit,
     onRemove: (Account) -> Unit,
     onAdd: () -> Unit,
-    onCopyToken: (String) -> Unit,
     onReplayIntro: () -> Unit,
     scroll: ScrollState = rememberScrollState()
 ) {
     val ctx = LocalContext.current
-    val cs = MaterialTheme.colorScheme
-    val scope = rememberCoroutineScope()
     var confirm by remember { mutableStateOf<Account?>(null) }
 
     Column(
         Modifier.verticalScroll(scroll).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Gap14
     ) {
-        SectionCard("Accounts") {
-            ui.accounts.forEach { a ->
-                val active = a.id == ui.activeId
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = !active) { onSwitch(a) }
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Avatar(a.name)
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(a.name, style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            if (active) "Active" else "Tap to switch",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (active) cs.primary else cs.onSurfaceVariant
-                        )
-                    }
-                    IconButton(onClick = { confirm = a }) { Icon(Icons.Default.Close, "Remove ${a.name}") }
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            ExpTonalButton(onClick = onAdd, modifier = Modifier.fillMaxWidth()) { Text("Add account") }
-        }
-
-        SectionCard("Appearance") {
-            Segmented(
-                listOf("System", "Light", "Dark"),
-                listOf("system", "light", "dark").indexOf(ui.themeMode).coerceAtLeast(0),
-                onSelect = { ui.setTheme(listOf("system", "light", "dark")[it]) }
-            )
-        }
-
-        SectionCard("Buttons on Discord") {
-            ToggleRow(
-                "YouTube button",
-                "Video link or YouTube search",
-                ui.btnVideo
-            ) { ui.setBtnVideo(it) }
-            ToggleRow(
-                "Get DPM button",
-                "Link to the GitHub page",
-                ui.btnRepo
-            ) { ui.setBtnRepo(it) }
-        }
-
-        SectionCard("Images") {
-            ToggleRow("Send images", "App icon and cover art", ui.images) { ui.setImages(it) }
-            Text(
-                "Discord can't take pictures directly, so the app uploads them once to a Discord application of yours " +
-                    "and refers to them by ID. To set one up: open the developer portal, create a New Application, " +
-                    "and paste its Application ID here.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurfaceVariant
-            )
-            Field(
-                "Application ID",
-                ui.appId,
-                Modifier.padding(top = 12.dp)
-            ) { v -> ui.setAppId(v.filter { it.isDigit() }.take(25)) }
-
-            var status by remember { mutableStateOf(Art.status) }
-            var checking by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) {
-                while (true) {
-                    status = Art.status
-                    delay(2000)
-                }
-            }
-            if (status.isNotBlank()) {
-                Text(
-                    status,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (status.startsWith("Connected")) cs.primary else cs.error,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
-            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ExpOutlinedButton(onClick = {
-                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://discord.com/developers/applications")))
-                }) { Text("Developer portal") }
-                ExpTonalButton(enabled = !checking && ui.appId.isNotBlank(), onClick = {
-                    checking = true
-                    scope.launch {
-                        status = withContext(Dispatchers.IO) { Art.check(ctx) }
-                        checking = false
-                    }
-                }) { Text(if (checking) "Checking" else "Check") }
-            }
-        }
-
-        SectionCard("Background") {
-            ToggleRow(
-                "Start when the phone restarts",
-                "Presence comes back on its own if it was on",
-                ui.bootStart
-            ) { ui.setBootStart(it) }
-            val batteryOk = remember(ui.permTick) { Perms.battery(ctx) }
-            Text(
-                if (batteryOk) "Battery optimization is off for this app, so Android should not stop it."
-                else "Android may stop the app in the background to save battery. Allowing background activity keeps presence running.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurfaceVariant
-            )
-            if (!batteryOk) {
-                ExpButton(
-                    onClick = {
-                        ctx.startActivity(
-                            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}"))
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                ) { Text("Allow background activity") }
-            }
-            Text(
-                "Some phones (Xiaomi, Oppo, Vivo, Huawei, Samsung) also have their own Autostart or app launch setting that must be allowed in system settings.",
-                style = MaterialTheme.typography.bodySmall,
-                color = cs.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-
-        val active = ui.accounts.firstOrNull { it.id == ui.activeId }
-        val tk = active?.token.orEmpty()
-        var shown by remember { mutableStateOf(false) }
-        SectionCard("Token") {
-            Text(
-                "Token for ${active?.name ?: "?"}. Anyone who has it controls your account, so never share it.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurfaceVariant
-            )
-            Text(
-                if (shown) tk else "\u2022".repeat(32),
-                fontFamily = FontFamily.Monospace,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(vertical = 10.dp)
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ExpOutlinedButton(onClick = { shown = !shown }, modifier = Modifier.weight(1f)) { Text(if (shown) "Hide" else "Show") }
-                ExpTonalButton(onClick = { onCopyToken(tk) }, modifier = Modifier.weight(1f)) { Text("Copy") }
-            }
-        }
-
-        SectionCard("Updates") {
-            var auto by remember { mutableStateOf(Store.get(ctx, "upd_auto", "1") == "1") }
-            val st = Updater.state
-            Text("Installed: ${Updater.installedVersion(ctx)}", style = MaterialTheme.typography.bodyLarge)
-            Text(
-                when (st) {
-                    is UpdateState.Idle -> "Not checked yet"
-                    is UpdateState.Checking -> "Checking GitHub"
-                    is UpdateState.UpToDate -> "You have the latest version"
-                    is UpdateState.Available -> "Version ${st.tag} is available"
-                    is UpdateState.Downloading -> "Downloading ${st.tag}"
-                    is UpdateState.Ready -> "Version ${st.tag} is ready to install"
-                    is UpdateState.Failed -> st.message
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (st is UpdateState.Failed) cs.error else cs.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp)
-            )
-            if (st is UpdateState.Available && st.notes.isNotBlank()) {
-                Text(
-                    st.notes,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = cs.onSurfaceVariant,
-                    maxLines = 8,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-            when (st) {
-                is UpdateState.Checking -> LinearWavyProgressIndicator(Modifier.fillMaxWidth().padding(top = 12.dp))
-                is UpdateState.Downloading -> LinearWavyProgressIndicator(
-                    progress = { if (st.total > 0L) (st.done.toFloat() / st.total).coerceIn(0f, 1f) else 0f },
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
-                )
-                is UpdateState.Available -> Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ExpButton(onClick = { Updater.download(ctx) }) { Text("Download") }
-                    ExpOutlinedButton(onClick = {
-                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(st.page.ifEmpty { Updater.REPO_URL })))
-                    }) { Text("Release page") }
-                }
-                is UpdateState.Ready -> ExpButton(
-                    onClick = { ctx.activity()?.let { Updater.install(it) } },
-                    modifier = Modifier.padding(top = 12.dp)
-                ) { Text("Install") }
-                else -> ExpTonalButton(
-                    onClick = { Updater.check(ctx) },
-                    modifier = Modifier.padding(top = 12.dp)
-                ) { Text("Check for updates") }
-            }
-            ToggleRow("Check automatically", "At most once every 12 hours, when the app opens", auto) {
-                auto = it
-                Store.put(ctx, "upd_auto", if (it) "1" else "0")
-            }
-        }
-
-        SectionCard("About") {
-            val version = remember { runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull().orEmpty() }
-            Text("DPM", style = MaterialTheme.typography.titleLargeEmphasized)
-            Text(
-                "Discord Presence Manager $version",
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 10.dp)
-            )
-            Text(
-                "Logging in with a token or QR code, and sending presence from a user account, is against Discord's Terms of Service " +
-                    "and can get an account limited or banned. Use at your own risk, ideally on an alternate account. " +
-                    "DPM is an independent project and is not affiliated with Discord.",
-                style = MaterialTheme.typography.bodySmall,
-                color = cs.onSurfaceVariant
-            )
-            ExpTextButton(onClick = onReplayIntro) { Text("Show intro again") }
-        }
-
-        SectionCard("Credits") {
-            Text("Made by DinoCDX", style = MaterialTheme.typography.titleMediumEmphasized)
-            Text(
-                "DPM is open source. Bug reports and pull requests are welcome.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ExpOutlinedButton(onClick = {
-                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Updater.OWNER_URL)))
-                }) { Text("GitHub profile") }
-                ExpTonalButton(onClick = {
-                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Updater.REPO_URL)))
-                }) { Text("Source code") }
-            }
-        }
-
-        ExpTonalButton(
-            onClick = { active?.let { confirm = it } },
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("Log out of ${active?.name ?: "account"}") }
+        AccountsCard(ui, onSwitch, onAdd) { confirm = it }
+        AppearanceCard(ui)
+        PresenceSettingsCard(ui)
+        PicturesCard(ui)
+        UpdatesCard()
+        AboutCard(ui, onReplayIntro)
+        if (ui.devMode) DeveloperSection(ui)
         Spacer(Modifier.height(8.dp))
     }
 
@@ -310,5 +79,347 @@ fun SettingsScreen(
             confirmButton = { ExpTextButton(onClick = { confirm = null; onRemove(a) }) { Text("Remove") } },
             dismissButton = { ExpTextButton(onClick = { confirm = null }) { Text("Cancel") } }
         )
+    }
+}
+
+@Composable
+private fun AccountsCard(ui: UiState, onSwitch: (Account) -> Unit, onAdd: () -> Unit, onRemoveRequest: (Account) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val active = ui.accounts.firstOrNull { it.id == ui.activeId }
+    SectionCard("Accounts") {
+        ui.accounts.forEach { a ->
+            val isActive = a.id == ui.activeId
+            Row(
+                Modifier.fillMaxWidth().clickable(enabled = !isActive) { onSwitch(a) }.padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Avatar(a.name, 40.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(a.name, style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        if (isActive) "Active" else "Tap to switch",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isActive) cs.primary else cs.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = { onRemoveRequest(a) }) { Icon(Icons.Default.Close, "Remove ${a.name}") }
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ExpTonalButton(onClick = onAdd, modifier = Modifier.weight(1f)) { Text("Add account") }
+            if (active != null) {
+                ExpOutlinedButton(onClick = { onRemoveRequest(active) }, modifier = Modifier.weight(1f)) {
+                    Text("Log out")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppearanceCard(ui: UiState) {
+    val modes = listOf("system", "light", "dark")
+    SectionCard("Appearance") {
+        Segmented(
+            listOf("System", "Light", "Dark"),
+            modes.indexOf(ui.themeMode).coerceAtLeast(0),
+            onSelect = { ui.setTheme(modes[it]) }
+        )
+    }
+}
+
+@Composable
+private fun PresenceSettingsCard(ui: UiState) {
+    val ctx = LocalContext.current
+    val cs = MaterialTheme.colorScheme
+    SectionCard("Presence") {
+        ToggleRow("YouTube button", "Opens a video link or search", ui.btnVideo) { ui.setBtnVideo(it) }
+        ToggleRow("Get DPM button", "Links to the project page", ui.btnRepo) { ui.setBtnRepo(it) }
+        ToggleRow("Start when the phone restarts", "Presence comes back on its own if it was on", ui.bootStart) { ui.setBootStart(it) }
+        val batteryOk = remember(ui.permTick) { Perms.battery(ctx) }
+        if (!batteryOk) {
+            Text(
+                "Android may stop DPM in the background. Allow background activity to keep presence running.",
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            ExpTonalButton(
+                onClick = {
+                    ctx.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}")))
+                },
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+            ) { Text("Allow background activity") }
+        }
+    }
+}
+
+@Composable
+private fun PicturesCard(ui: UiState) {
+    SectionCard("Pictures") {
+        ToggleRow(
+            "Send pictures",
+            "Album art and video thumbnails from public links. Otherwise the DPM icon.",
+            ui.images
+        ) { ui.setImages(it) }
+    }
+}
+
+@Composable
+private fun UpdatesCard() {
+    val ctx = LocalContext.current
+    val cs = MaterialTheme.colorScheme
+    var auto by remember { mutableStateOf(Store.get(ctx, "upd_auto", "1") == "1") }
+    val st = Updater.state
+    val summary = when (st) {
+        is UpdateState.Idle -> "Installed ${Updater.installedVersion(ctx)}"
+        is UpdateState.Checking -> "Checking GitHub"
+        is UpdateState.UpToDate -> "Up to date, ${Updater.installedVersion(ctx)}"
+        is UpdateState.Available -> "Version ${st.tag} is available"
+        is UpdateState.Downloading -> "Downloading ${st.tag}"
+        is UpdateState.Ready -> "Version ${st.tag} is ready to install"
+        is UpdateState.Failed -> st.message
+    }
+    SectionCard("Updates") {
+        Text(
+            summary,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (st is UpdateState.Failed) cs.error else cs.onSurfaceVariant
+        )
+        when (st) {
+            is UpdateState.Checking -> LinearWavyProgressIndicator(Modifier.fillMaxWidth().padding(top = 12.dp))
+            is UpdateState.Downloading -> LinearWavyProgressIndicator(
+                progress = { if (st.total > 0L) (st.done.toFloat() / st.total).coerceIn(0f, 1f) else 0f },
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+            )
+            is UpdateState.Available -> Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ExpButton(onClick = { Updater.download(ctx) }) { Text("Download") }
+                ExpOutlinedButton(onClick = {
+                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(st.page.ifEmpty { Updater.REPO_URL })))
+                }) { Text("Release page") }
+            }
+            is UpdateState.Ready -> ExpButton(
+                onClick = { ctx.activity()?.let { Updater.install(it) } },
+                modifier = Modifier.padding(top = 12.dp)
+            ) { Text("Install") }
+            else -> ExpTonalButton(onClick = { Updater.check(ctx) }, modifier = Modifier.padding(top = 12.dp)) {
+                Text("Check for updates")
+            }
+        }
+        ToggleRow("Check automatically", "At most once every 12 hours", auto) {
+            auto = it
+            Store.put(ctx, "upd_auto", if (it) "1" else "0")
+        }
+    }
+}
+
+private const val DOCS_URL = "https://dinocdx.github.io/discord-presence-manager/"
+
+@Composable
+private fun AboutCard(ui: UiState, onReplayIntro: () -> Unit) {
+    val ctx = LocalContext.current
+    val cs = MaterialTheme.colorScheme
+    val version = remember { runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull().orEmpty() }
+    var taps by remember { mutableIntStateOf(0) }
+    SectionCard("About", Modifier.clickable {
+        if (ui.devMode) return@clickable
+        taps++
+        if (taps >= 7) {
+            taps = 0
+            ui.switchDevMode(true)
+            ctx.toast("Developer mode is on")
+        }
+    }) {
+        Text("DPM $version", style = MaterialTheme.typography.titleMediumEmphasized)
+        Text(
+            "Made by DinoCDX. Open source, and bug reports and pull requests are welcome.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = cs.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        Text(
+            "Sending presence from a user account is against Discord's Terms of Service and can get it limited or banned. " +
+                "DPM is not affiliated with Discord.",
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ExpTonalButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(DOCS_URL))) }) {
+                Text("Docs")
+            }
+            ExpOutlinedButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Updater.REPO_URL))) }) {
+                Text("Source code")
+            }
+            ExpTextButton(onClick = onReplayIntro) { Text("Intro") }
+        }
+    }
+}
+
+@Composable
+private fun DeveloperSection(ui: UiState) {
+    val cs = MaterialTheme.colorScheme
+    Text(
+        "Developer",
+        style = MaterialTheme.typography.titleLargeEmphasized,
+        color = cs.primary,
+        modifier = Modifier.padding(top = 12.dp)
+    )
+    DevApps(ui)
+    DevToken(ui)
+    DevTest()
+    DevLogs()
+    ExpTextButton(onClick = { ui.switchDevMode(false) }) { Text("Turn off developer mode") }
+}
+
+@Composable
+private fun DevApps(ui: UiState) {
+    val ctx = LocalContext.current
+    val cs = MaterialTheme.colorScheme
+    val scope = rememberCoroutineScope()
+    var newName by remember { mutableStateOf("") }
+    var newId by remember { mutableStateOf("") }
+    var status by remember { mutableStateOf(Art.status) }
+    var checking by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            status = Art.status
+            delay(2000)
+        }
+    }
+    SectionCard("Application for pictures") {
+        ui.apps.forEach { app ->
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    app.name.ifBlank { "Discord app" } + "\n" + app.id,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                if (app.id == ui.appId) {
+                    Text("Active", style = MaterialTheme.typography.labelLarge, color = cs.primary)
+                } else {
+                    ExpTextButton(onClick = { ui.setActiveApp(app.id) }) { Text("Use") }
+                }
+                ExpTextButton(onClick = { ui.removeApp(app.id) }) { Text("Remove") }
+            }
+        }
+        Field("Name (optional)", newName, Modifier.padding(top = 12.dp)) { newName = it.take(40) }
+        Field("Application ID", newId, Modifier.padding(top = 8.dp)) { v -> newId = v.filter { it.isDigit() }.take(20) }
+        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ExpTonalButton(enabled = Art.validId(newId), onClick = {
+                ui.addApp(newId, newName)
+                newId = ""
+                newName = ""
+            }) { Text("Add app") }
+            ExpTonalButton(enabled = !checking && ui.appId.isNotBlank(), onClick = {
+                checking = true
+                scope.launch {
+                    status = withContext(Dispatchers.IO) { Art.check(ctx) }
+                    checking = false
+                }
+            }) { Text(if (checking) "Checking" else "Check") }
+        }
+        if (status.isNotBlank()) {
+            Text(
+                status,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (status.startsWith("Connected")) cs.primary else cs.error,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun DevToken(ui: UiState) {
+    val cs = MaterialTheme.colorScheme
+    var tokenInput by remember { mutableStateOf("") }
+    SectionCard("Login token for uploads") {
+        Text(
+            "Only needed for pictures from your phone. Stored encrypted on this phone and only sent to Discord. " +
+                "Using a user token in an app breaks Discord's Terms of Service.",
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.onSurfaceVariant
+        )
+        Field("Login token", tokenInput, Modifier.padding(top = 8.dp)) { tokenInput = it.trim() }
+        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ExpTonalButton(enabled = tokenInput.length > 20, onClick = {
+                ui.setUploadToken(tokenInput)
+                tokenInput = ""
+            }) { Text(if (ui.hasUploadToken) "Replace" else "Save") }
+            if (ui.hasUploadToken) {
+                ExpTextButton(onClick = { ui.setUploadToken("") }) { Text("Remove") }
+                Text("Saved", style = MaterialTheme.typography.bodySmall, color = cs.primary, modifier = Modifier.padding(top = 14.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun DevTest() {
+    val ctx = LocalContext.current
+    val cs = MaterialTheme.colorScheme
+    val scope = rememberCoroutineScope()
+    var url by remember { mutableStateOf(ExternalTest.DEFAULT_URL) }
+    var result by remember { mutableStateOf("") }
+    var running by remember { mutableStateOf(false) }
+    SectionCard("Test presence with an image") {
+        Text(
+            "Sends one test presence through the application your presence uses, with the image from this link. Pause presence first so DPM doesn't replace it.",
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.onSurfaceVariant
+        )
+        Field("Image URL", url, Modifier.padding(top = 8.dp)) { url = it.trim() }
+        ExpTonalButton(
+            enabled = !running && url.startsWith("https://"),
+            onClick = {
+                running = true
+                scope.launch {
+                    result = withContext(Dispatchers.IO) { ExternalTest.run(ctx, url) }
+                    running = false
+                }
+            },
+            modifier = Modifier.padding(top = 8.dp)
+        ) { Text(if (running) "Sending" else "Send test") }
+        if (result.isNotBlank()) {
+            Text(result, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+        }
+    }
+}
+
+@Composable
+private fun DevLogs() {
+    val ctx = LocalContext.current
+    val cs = MaterialTheme.colorScheme
+    var logText by remember { mutableStateOf(Logs.text()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            logText = Logs.text()
+            delay(1000)
+        }
+    }
+    SectionCard("Logs") {
+        Column(Modifier.fillMaxWidth().heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
+            SelectionContainer {
+                Text(logText, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
+            ExpTonalButton(
+                onClick = {
+                    ctx.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("DPM logs", Logs.text()))
+                    ctx.toast("Logs copied")
+                },
+                modifier = Modifier.weight(1f)
+            ) { Text("Copy") }
+            ExpOutlinedButton(
+                onClick = {
+                    Logs.clear()
+                    logText = Logs.text()
+                },
+                modifier = Modifier.weight(1f)
+            ) { Text("Clear") }
+        }
     }
 }

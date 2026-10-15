@@ -7,7 +7,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
-/** A saved static presence the user can switch to. */
 class Preset(
     val id: String,
     val label: String,
@@ -63,7 +62,6 @@ object StaticFiles {
     fun file(c: Context, name: String): File? =
         if (name.isBlank()) null else File(dir(c), name).takeIf { it.exists() }
 
-    /** Square-crops the picked picture, shrinks it and stores it. Returns the stored file name. */
     fun save(c: Context, uri: Uri): String? = try {
         val bytes = c.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
         val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -84,6 +82,6 @@ object StaticFiles {
             Presets.all(c).any { it.large == name || it.small == name })
 
     fun prune(c: Context, name: String) {
-        if (name.isNotBlank() && !inUse(c, name)) File(dir(c), name).delete()
+        if (name.isNotBlank() && !name.startsWith("https://") && !inUse(c, name)) File(dir(c), name).delete()
     }
 }

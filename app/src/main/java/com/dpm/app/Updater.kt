@@ -37,7 +37,6 @@ sealed class UpdateState {
 }
 
 object Updater {
-    const val OWNER_URL = "https://github.com/DinoCDX"
     const val REPO_URL = "https://github.com/DinoCDX/discord-presence-manager"
     private const val API = "https://api.github.com/repos/DinoCDX/discord-presence-manager/releases/latest"
     private const val CHECK_EVERY_MS = 12 * 3_600_000L
