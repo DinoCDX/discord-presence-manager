@@ -47,7 +47,7 @@ Download the APK from the [latest release](https://github.com/DinoCDX/discord-pr
 2. Allow the permissions you're happy with. Every permission can be skipped.
 3. On the Presence tab, switch on Share my presence.
 4. On the Apps tab, choose which apps are allowed to show up.
-5. Optional: for album art, turn on Send pictures under Settings, then Pictures. For your own pictures, see the [images guide](https://dinocdx.github.io/discord-presence-manager/images.html).
+5. Optional: for album art, turn on Send pictures under Settings, then Pictures. For your own pictures, see the [Features page](https://dinocdx.github.io/discord-presence-manager/features.html#pictures).
 
 The [docs](https://dinocdx.github.io/discord-presence-manager/) go into more detail.
 
@@ -59,7 +59,7 @@ The [docs](https://dinocdx.github.io/discord-presence-manager/) go into more det
 | Notifications | Pause and Stop in the notification |
 | Usage access | Seeing which app or game is on screen |
 | Notification access | Reading what media is playing |
-| Battery optimization | Keeping Android from putting the app to sleep |
+| Background activity | Keeping Android from putting the app to sleep |
 | Start at boot | Bringing presence back after a restart |
 | Installed apps | The app list and icons |
 | Install packages | Installing downloaded updates |

@@ -135,11 +135,11 @@ object Art {
     }
 
     private fun mediaImages(c: Context, app: String, pkg: String, i: Info): Resolved? {
-        val large = i.artUri?.takeIf { it.startsWith("https://") }?.let { external(c, app, it) }
-            ?: Apps.def(pkg)?.icon?.let { external(c, app, it) }
-            ?: external(c, app, DEFAULT_IMAGE_URL)
-            ?: return null
-        return Resolved(large, null)
+        val icon = Apps.def(pkg)?.icon?.let { external(c, app, it) }
+        val cover = i.artUri?.takeIf { it.startsWith("https://") }?.let { external(c, app, it) }
+        if (cover != null) return Resolved(cover, icon)
+        val big = icon ?: external(c, app, DEFAULT_IMAGE_URL) ?: return null
+        return Resolved(big, null)
     }
 
     @Synchronized

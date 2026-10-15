@@ -239,8 +239,7 @@ private fun AboutCard(ui: UiState, onReplayIntro: () -> Unit) {
             modifier = Modifier.padding(top = 4.dp)
         )
         Text(
-            "Sending presence from a user account is against Discord's Terms of Service and can get it limited or banned. " +
-                "DPM is not affiliated with Discord.",
+            "DPM is not affiliated with Discord.",
             style = MaterialTheme.typography.bodySmall,
             color = cs.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp)

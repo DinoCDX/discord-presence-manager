@@ -13,8 +13,8 @@ android {
         applicationId = "com.dpm.app"
         minSdk = 29
         targetSdk = 34
-        versionCode = (System.getenv("VERSION_CODE") ?: "10301").toInt()
-        versionName = System.getenv("VERSION_NAME") ?: "1.3.1"
+        versionCode = (System.getenv("VERSION_CODE") ?: "10401").toInt()
+        versionName = System.getenv("VERSION_NAME") ?: "1.4.1"
 
         // Discord OAuth needs the Application ID at build time, because the redirect scheme
         // (discord-<APP_ID>) is registered in the manifest. Set DISCORD_APP_ID or -PdiscordAppId=...

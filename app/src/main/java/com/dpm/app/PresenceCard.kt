@@ -153,7 +153,8 @@ private fun ArtBox(info: Info) {
     val icon by produceState<Bitmap?>(AppIcons.cached(pkg, 192), pkg) {
         if (value == null) value = withContext(Dispatchers.IO) { AppIcons.get(ctx, pkg, 192) }
     }
-    val cover = info.bitmap
+    // Discord can only show cover art from a public https link, so the preview matches that.
+    val cover = info.bitmap?.takeIf { info.artUri?.startsWith("https://") == true }
     val big = cover ?: icon
     val small = if (cover != null) icon else null
     Box(Modifier.size(80.dp)) {

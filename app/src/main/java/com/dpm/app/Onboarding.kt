@@ -47,7 +47,6 @@ import androidx.compose.ui.unit.dp
 private const val STEPS = 3
 private const val WELCOME_STEP = 0
 private const val LOGIN_STEP = 1
-private const val PERMISSIONS_STEP = 2
 
 @Composable
 fun Onboarding(ui: UiState, onDone: () -> Unit) {
@@ -131,8 +130,6 @@ fun Onboarding(ui: UiState, onDone: () -> Unit) {
                             Head("Welcome to DPM")
                             Body("DPM (Discord Presence Manager) shows what you're doing on your phone as a Discord activity: music, video, games and apps.")
                             Body("Setup takes about a minute. You'll log in with Discord, then choose the permissions to allow. You can skip any of them and change them later.")
-                            Spacer(Modifier.height(12.dp))
-                            Body("Sending presence from a user account is against Discord's Terms of Service and can get the account limited or banned. Use an alternate account if you can.")
                         }
                         LOGIN_STEP -> LoginStep(active)
                         else -> {
