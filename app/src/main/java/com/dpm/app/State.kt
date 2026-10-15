@@ -34,6 +34,7 @@ class UiState(private val c: Context) {
         private set
     var sSmall by mutableStateOf("")
         private set
+    var sLargeText by mutableStateOf("")
     var sB1L by mutableStateOf("")
     var sB1U by mutableStateOf("")
     var sB2L by mutableStateOf("")
@@ -60,8 +61,6 @@ class UiState(private val c: Context) {
     @set:JvmName("assignAppId") var appId by mutableStateOf("")
         private set
     var apps by mutableStateOf(listOf<DiscordApp>())
-        private set
-    var hasUploadToken by mutableStateOf(false)
         private set
 
     @set:JvmName("assignSchedOn") var schedOn by mutableStateOf(false)
@@ -102,6 +101,7 @@ class UiState(private val c: Context) {
         sDur = Store.get(c, "s_dur", "60").toIntOrNull() ?: 60
         sLarge = Store.get(c, "s_large", "")
         sSmall = Store.get(c, "s_small", "")
+        sLargeText = Store.get(c, "s_large_text", "")
         sB1L = Store.get(c, "s_b1l", "")
         sB1U = Store.get(c, "s_b1u", "")
         sB2L = Store.get(c, "s_b2l", "")
@@ -125,7 +125,6 @@ class UiState(private val c: Context) {
         onlyOnline = flag("only_online", false)
         bootStart = flag("boot_start", true)
         apps = Store.apps(c)
-        hasUploadToken = Store.get(c, "upload_token", "").isNotEmpty()
         appId = Store.activeApp(c)?.id.orEmpty()
         schedOn = Schedule.on(c)
         windows = Schedule.windows(c)
@@ -177,6 +176,7 @@ class UiState(private val c: Context) {
         "s_dur" to sDur.toString(),
         "s_large" to sLarge,
         "s_small" to sSmall,
+        "s_large_text" to sLargeText,
         "s_b1l" to sB1L.trim(),
         "s_b1u" to sB1U.trim(),
         "s_b2l" to sB2L.trim(),
@@ -200,6 +200,7 @@ class UiState(private val c: Context) {
         sName = ""
         sDetails = ""
         sState = ""
+        sLargeText = ""
         saveStatic()
     }
 
@@ -246,7 +247,7 @@ class UiState(private val c: Context) {
     fun savePreset(label: String) {
         val p = Preset(
             System.currentTimeMillis().toString(), label.trim().ifEmpty { sName.ifEmpty { "Preset" } },
-            sType, sName, sDetails, sState, sTimerMode, sDur, sLarge, sSmall, sB1L, sB1U, sB2L, sB2U
+            sType, sName, sDetails, sState, sTimerMode, sDur, sLarge, sSmall, sB1L, sB1U, sB2L, sB2U, sLargeText
         )
         presets = presets + p
         Presets.save(c, presets)
@@ -260,6 +261,7 @@ class UiState(private val c: Context) {
         sDur = p.durMin
         sLarge = p.large
         sSmall = p.small
+        sLargeText = p.largeText
         sB1L = p.b1l
         sB1U = p.b1u
         sB2L = p.b2l
@@ -289,11 +291,12 @@ class UiState(private val c: Context) {
             name = n,
             details = sDetails.trim().ifEmpty { null },
             state = sState.trim().ifEmpty { null },
-            start = if (sTimerMode == "up" && sStarted > 0L) sStarted else null,
-            end = if (sTimerMode == "down" && sEnd > now) sEnd else null,
+            start = if (sTimerMode == "up" && sStarted > 0L && sType != 5) sStarted else null,
+            end = if (sTimerMode == "down" && sEnd > now && sType != 5) sEnd else null,
             buttons = btns,
             largeFile = sLarge.ifEmpty { null },
-            smallFile = sSmall.ifEmpty { null }
+            smallFile = sSmall.ifEmpty { null },
+            largeText = sLargeText.trim().ifEmpty { null }
         )
     }
 
@@ -339,14 +342,6 @@ class UiState(private val c: Context) {
         Store.put(c, "active_app", id)
         apps = Store.apps(c)
         appId = id
-        Art.reset()
-        PresenceService.kick()
-    }
-
-    fun setUploadToken(v: String) {
-        val t = v.trim()
-        Store.put(c, "upload_token", t)
-        hasUploadToken = t.isNotEmpty()
         Art.reset()
         PresenceService.kick()
     }

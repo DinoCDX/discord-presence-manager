@@ -76,15 +76,18 @@ fun StaticEditor(ui: UiState, now: Long) {
             ImagePick("Large", ui.sLarge) { ui.setImage(true, it) }
             ImagePick("Small", ui.sSmall) { ui.setImage(false, it) }
         }
-        if (ui.appId.isBlank()) {
+        Field("Large text", ui.sLargeText, hint = "Hover text for the large picture. Optional") { ui.sLargeText = it.take(LIMIT) }
+
+
+        if (ui.sType == 5) {
             Text(
-                "Images and buttons need a Discord app of yours (Settings).",
+                "Discord doesn't show timers for Competing in, so the timer is hidden for this type.",
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant
             )
+        } else {
+            TimerEditor(ui, now)
         }
-
-        TimerEditor(ui, now)
 
         Text("Buttons", style = MaterialTheme.typography.titleSmall, color = cs.primary)
         ButtonFields(1, ui.sB1L, ui.sB1U, { ui.sB1L = it.take(32) }, { ui.sB1U = it })
@@ -193,11 +196,12 @@ private fun ImagePick(label: String, file: String, onPicked: (String) -> Unit) {
             onDismissRequest = { linking = false },
             title = { Text("$label image link") },
             text = {
-                Field("Image URL", url, hint = "Public https:// link to a picture") { url = it.trim() }
+                val problem = if (url.isBlank()) null else imageUrlProblem(url)
+            Field("Image URL", url, hint = problem ?: "Direct link to a .png, .jpg, .gif, .webp or .avif file") { url = it.trim() }
             },
             confirmButton = {
-                ExpButton(enabled = url.startsWith("https://"), onClick = {
-                    onPicked(url)
+                ExpButton(enabled = url.isNotBlank() && imageUrlProblem(url) == null, onClick = {
+                    onPicked(normalizeImageUrl(url))
                     linking = false
                 }) { Text("Save") }
             },

@@ -29,12 +29,13 @@ class Info(
     val link: String? = null,
     val buttons: List<Pair<String, String>> = emptyList(),
     val largeFile: String? = null,
-    val smallFile: String? = null
+    val smallFile: String? = null,
+    val largeText: String? = null
 ) {
     val key: String get() = "$name|$details|$state"
 
     fun copyWithButtons(buttons: List<Pair<String, String>>) = Info(
-        type, name, details, state, album, start, end, pkg, artUri, bitmap, source, link, buttons, largeFile, smallFile
+        type, name, details, state, album, start, end, pkg, artUri, bitmap, source, link, buttons, largeFile, smallFile, largeText
     )
 }
 
@@ -51,6 +52,7 @@ object Dynamic {
     fun staticInfo(c: Context): Info? {
         val name = Store.get(c, "s_name", "").trim()
         if (name.isEmpty()) return null
+        val competing = Store.get(c, "s_type", "0") == "5"
         val mode = Store.get(c, "s_tmode", if (Store.get(c, "s_timer", "0") == "1") "up" else "off")
         val started = Store.get(c, "s_started", "0").toLongOrNull() ?: 0L
         val end = Store.get(c, "s_end", "0").toLongOrNull() ?: 0L
@@ -63,11 +65,12 @@ object Dynamic {
             name = name,
             details = Store.get(c, "s_details", "").trim().ifEmpty { null },
             state = Store.get(c, "s_state", "").trim().ifEmpty { null },
-            start = if (mode == "up" && started > 0L) started else null,
-            end = if (mode == "down" && end > System.currentTimeMillis()) end else null,
+            start = if (mode == "up" && started > 0L && !competing) started else null,
+            end = if (mode == "down" && end > System.currentTimeMillis() && !competing) end else null,
             buttons = btns,
             largeFile = Store.get(c, "s_large", "").ifEmpty { null },
-            smallFile = Store.get(c, "s_small", "").ifEmpty { null }
+            smallFile = Store.get(c, "s_small", "").ifEmpty { null },
+            largeText = Store.get(c, "s_large_text", "").trim().ifEmpty { null }
         )
     }
 
@@ -87,7 +90,8 @@ object Dynamic {
         for (k in Sources.order(c)) {
             if (!Sources.enabled(c, k)) continue
             val i = when (k) {
-                Sources.MUSIC -> media(c, fg)
+                Sources.MUSIC -> media(c, fg, false)
+                Sources.VIDEO -> media(c, fg, true)
                 Sources.GAME -> app(c, fg, true)
                 else -> app(c, fg, false)
             }
@@ -102,7 +106,7 @@ object Dynamic {
 
     private fun buttonsFor(c: Context, i: Info): List<Pair<String, String>> {
         val list = ArrayList<Pair<String, String>>()
-        if (i.source == Sources.MUSIC && Store.get(c, "btn_video", "1") == "1") {
+        if ((i.source == Sources.MUSIC || i.source == Sources.VIDEO) && Store.get(c, "btn_video", "1") == "1") {
             val url = i.link?.takeIf { it.startsWith("http") } ?: run {
                 val q = listOfNotNull(i.state, i.details).joinToString(" ").trim()
                 if (q.isEmpty()) null else "https://www.youtube.com/results?search_query=" + java.net.URLEncoder.encode(q, "UTF-8")
@@ -135,7 +139,7 @@ object Dynamic {
     private fun addAssets(c: Context, o: JSONObject, i: Info) {
         val r = (if (i.pkg != null) Art.resolve(c, i) else Art.resolveStatic(c, i)) ?: return
         val assets = JSONObject().put("large_image", r.big)
-        (i.album ?: i.details)?.let { assets.put("large_text", it) }
+        (i.largeText ?: i.album ?: i.details)?.let { assets.put("large_text", it) }
         r.small?.let { assets.put("small_image", it).put("small_text", i.name) }
         o.put("assets", assets)
     }
@@ -173,12 +177,13 @@ object Dynamic {
     private fun text(md: MediaMetadata, vararg keys: String): String? =
         keys.firstNotNullOfOrNull { k -> md.getString(k)?.takeIf { it.isNotBlank() } }
 
-    private fun media(c: Context, fg: String?): Info? {
+    private fun media(c: Context, fg: String?, video: Boolean): Info? {
         return try {
             val ignored = Store.pkgs(c, "ignore_apps")
             val msm = c.getSystemService(MediaSessionManager::class.java)
             val playing = msm.getActiveSessions(ComponentName(c, MediaListener::class.java)).filter {
-                it.playbackState?.state == PlaybackState.STATE_PLAYING && it.packageName !in ignored
+                it.playbackState?.state == PlaybackState.STATE_PLAYING && it.packageName !in ignored &&
+                    Apps.isWatching(it.packageName, category(c, it.packageName)) == video
             }
             val ctl = playing.firstOrNull { it.packageName == fg } ?: playing.firstOrNull() ?: return null
             val md = ctl.metadata ?: return null
@@ -230,7 +235,7 @@ object Dynamic {
                 pkg = pkg,
                 artUri = uri,
                 bitmap = bmp,
-                source = Sources.MUSIC,
+                source = if (video) Sources.VIDEO else Sources.MUSIC,
                 link = md.getString(MediaMetadata.METADATA_KEY_MEDIA_URI)
             )
         } catch (e: SecurityException) {

@@ -21,7 +21,8 @@ class Preset(
     val b1l: String,
     val b1u: String,
     val b2l: String,
-    val b2u: String
+    val b2u: String,
+    val largeText: String = ""
 )
 
 object Presets {
@@ -33,7 +34,7 @@ object Presets {
                 o.getString("id"), o.optString("label"), o.optInt("type"), o.optString("name"),
                 o.optString("details"), o.optString("state"), o.optString("tm", "off"), o.optInt("dur", 60),
                 o.optString("large"), o.optString("small"),
-                o.optString("b1l"), o.optString("b1u"), o.optString("b2l"), o.optString("b2u")
+                o.optString("b1l"), o.optString("b1u"), o.optString("b2l"), o.optString("b2u"), o.optString("lt")
             )
         }
     } catch (e: Exception) {
@@ -47,7 +48,7 @@ object Presets {
                 JSONObject().put("id", it.id).put("label", it.label).put("type", it.type).put("name", it.name)
                     .put("details", it.details).put("state", it.state).put("tm", it.timerMode).put("dur", it.durMin)
                     .put("large", it.large).put("small", it.small)
-                    .put("b1l", it.b1l).put("b1u", it.b1u).put("b2l", it.b2l).put("b2u", it.b2u)
+                    .put("b1l", it.b1l).put("b1u", it.b1u).put("b2l", it.b2l).put("b2u", it.b2u).put("lt", it.largeText)
             )
         }
         Store.put(c, "s_presets", a.toString())

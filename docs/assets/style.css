@@ -279,6 +279,12 @@ footer.site .links { display: flex; gap: 16px; flex-wrap: wrap; }
 
 nav.bottom { display: none; }
 
+.shots { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; margin: 18px 0; }
+.shot { margin: 16px 0; flex: 0 1 300px; }
+.shots .shot { margin: 0; }
+.shot img { width: 100%; height: auto; display: block; border-radius: 24px; }
+.shot figcaption { color: var(--on-surface-variant); font-size: 0.9rem; margin-top: 8px; }
+
 @media (max-width: 760px) {
   nav.top { display: none; }
   .bar { gap: 12px; }

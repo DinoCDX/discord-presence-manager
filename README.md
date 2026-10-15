@@ -9,6 +9,14 @@ DPM (Discord Presence Manager) puts what you're doing on your Android phone into
 <a href="https://dinocdx.github.io/discord-presence-manager/"><img alt="Docs" src="https://img.shields.io/badge/docs-website-4752c4?style=flat-square"></a>
 </p>
 
+<<<<<<< HEAD
+=======
+<p align="center">
+<img src="docs/assets/screenshots/presence.png" alt="Presence preview" width="260">
+<img src="docs/assets/screenshots/apps.png" alt="Apps tab" width="260">
+</p>
+
+>>>>>>> c251fcb (Minor Changes)
 ## Documentation
 
 Setup, features, permissions, images, troubleshooting and build instructions live on the **[DPM docs site](https://dinocdx.github.io/discord-presence-manager/)**.
@@ -19,9 +27,10 @@ Setup, features, permissions, images, troubleshooting and build instructions liv
 - A static mode, where you write the status yourself, with presets and optional timers and buttons.
 - A live preview that looks like the card Discord shows.
 - Per-app control: let an app show automatically, always, or never, or give it its own text.
+- Music and video are separate sources, so you can rank them differently.
 - A schedule by day and hour, plus an option to only share while you're online.
 - Several accounts. Log in with Discord and switch instantly.
-- Album art and video thumbnails from public links, and your own pictures through a Discord application you own.
+- Album art, video thumbnails and static pictures from direct image links, with no setup.
 - A notification with Pause and Stop, so you can control it from anywhere.
 - Updates from GitHub that you can install without leaving the app.
 - A Material 3 Expressive interface that follows your wallpaper colors.

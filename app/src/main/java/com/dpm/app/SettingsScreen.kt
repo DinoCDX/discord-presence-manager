@@ -267,7 +267,6 @@ private fun DeveloperSection(ui: UiState) {
         modifier = Modifier.padding(top = 12.dp)
     )
     DevApps(ui)
-    DevToken(ui)
     DevTest()
     DevLogs()
     ExpTextButton(onClick = { ui.switchDevMode(false) }) { Text("Turn off developer mode") }
@@ -277,18 +276,14 @@ private fun DeveloperSection(ui: UiState) {
 private fun DevApps(ui: UiState) {
     val ctx = LocalContext.current
     val cs = MaterialTheme.colorScheme
-    val scope = rememberCoroutineScope()
     var newName by remember { mutableStateOf("") }
     var newId by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf(Art.status) }
-    var checking by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            status = Art.status
-            delay(2000)
-        }
-    }
-    SectionCard("Application for pictures") {
+    SectionCard("Your own Discord app (optional)") {
+        Text(
+            "DPM uses its own Discord app by default, so most people don't need this. Add your own only if you want presence to show under your app.",
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.onSurfaceVariant
+        )
         ui.apps.forEach { app ->
             Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -312,46 +307,6 @@ private fun DevApps(ui: UiState) {
                 newId = ""
                 newName = ""
             }) { Text("Add app") }
-            ExpTonalButton(enabled = !checking && ui.appId.isNotBlank(), onClick = {
-                checking = true
-                scope.launch {
-                    status = withContext(Dispatchers.IO) { Art.check(ctx) }
-                    checking = false
-                }
-            }) { Text(if (checking) "Checking" else "Check") }
-        }
-        if (status.isNotBlank()) {
-            Text(
-                status,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (status.startsWith("Connected")) cs.primary else cs.error,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun DevToken(ui: UiState) {
-    val cs = MaterialTheme.colorScheme
-    var tokenInput by remember { mutableStateOf("") }
-    SectionCard("Login token for uploads") {
-        Text(
-            "Only needed for pictures from your phone. Stored encrypted on this phone and only sent to Discord. " +
-                "Using a user token in an app breaks Discord's Terms of Service.",
-            style = MaterialTheme.typography.bodySmall,
-            color = cs.onSurfaceVariant
-        )
-        Field("Login token", tokenInput, Modifier.padding(top = 8.dp)) { tokenInput = it.trim() }
-        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ExpTonalButton(enabled = tokenInput.length > 20, onClick = {
-                ui.setUploadToken(tokenInput)
-                tokenInput = ""
-            }) { Text(if (ui.hasUploadToken) "Replace" else "Save") }
-            if (ui.hasUploadToken) {
-                ExpTextButton(onClick = { ui.setUploadToken("") }) { Text("Remove") }
-                Text("Saved", style = MaterialTheme.typography.bodySmall, color = cs.primary, modifier = Modifier.padding(top = 14.dp))
-            }
         }
     }
 }

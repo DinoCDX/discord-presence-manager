@@ -42,8 +42,9 @@ fun PresenceCard(info: Info?, now: Long, empty: String, imagesOn: Boolean, hasAp
     }
     val isStatic = info.pkg == null
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        val isPlaying = info.type == 0
         Text(
-            if (isStatic) Presence.verb(info.type) else "${Presence.verb(info.type)} ${info.name}",
+            if (isStatic && isPlaying) Presence.verb(info.type) else "${Presence.verb(info.type)} ${info.name}",
             style = MaterialTheme.typography.labelLargeEmphasized,
             color = cs.onSurfaceVariant
         )
@@ -54,20 +55,21 @@ fun PresenceCard(info: Info?, now: Long, empty: String, imagesOn: Boolean, hasAp
             }
             Column(Modifier.weight(1f)) {
                 Text(
-                    if (isStatic) info.name else info.details ?: info.name,
+                    if (isStatic && isPlaying) info.name else info.details ?: info.name,
                     style = MaterialTheme.typography.titleMediumEmphasized,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (isStatic && !info.details.isNullOrBlank()) {
+                if (isStatic && isPlaying && !info.details.isNullOrBlank()) {
                     Text(info.details, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
                 if (!info.state.isNullOrBlank()) {
                     Text(info.state, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                if (!info.album.isNullOrBlank()) {
+                val extra = info.album ?: info.largeText
+                if (!extra.isNullOrBlank()) {
                     Text(
-                        info.album,
+                        extra,
                         style = MaterialTheme.typography.bodySmall,
                         color = cs.onSurfaceVariant,
                         maxLines = 1,
@@ -109,13 +111,6 @@ fun PresenceCard(info: Info?, now: Long, empty: String, imagesOn: Boolean, hasAp
             }
         }
 
-        if (imagesOn && (info.pkg != null || info.largeFile != null || info.smallFile != null) && !hasAppId) {
-            Text(
-                "Discord shows text only. Add one of your Discord apps in Settings to send images.",
-                style = MaterialTheme.typography.bodySmall,
-                color = cs.onSurfaceVariant
-            )
-        }
     }
 }
 

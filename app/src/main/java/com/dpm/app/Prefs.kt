@@ -109,18 +109,21 @@ class Custom(val type: Int, val name: String?, val details: String?, val state: 
 
 object Sources {
     const val MUSIC = "music"
+    const val VIDEO = "video"
     const val GAME = "game"
     const val APP = "app"
-    val all = listOf(MUSIC, GAME, APP)
+    val all = listOf(MUSIC, VIDEO, GAME, APP)
 
     fun label(k: String) = when (k) {
-        MUSIC -> "Music and video"
+        MUSIC -> "Music"
+        VIDEO -> "Video"
         GAME -> "Games"
         else -> "Other apps"
     }
 
     fun hint(k: String) = when (k) {
-        MUSIC -> "Whatever is playing right now"
+        MUSIC -> "Music that is playing right now"
+        VIDEO -> "Video that is playing right now, from video apps"
         GAME -> "The game on your screen"
         else -> "Other apps you allowed in the Apps tab"
     }
