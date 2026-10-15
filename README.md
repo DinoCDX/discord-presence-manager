@@ -9,9 +9,6 @@ DPM (Discord Presence Manager) puts what you're doing on your Android phone into
 <a href="https://dinocdx.github.io/discord-presence-manager/"><img alt="Docs" src="https://img.shields.io/badge/docs-website-4752c4?style=flat-square"></a>
 </p>
 
-> [!WARNING]
-> Discord doesn't allow presence from a user account, so the account can get limited or banned. If you can, use an alternate one. DPM isn't affiliated with Discord.
-
 ## Documentation
 
 Setup, features, permissions, images, troubleshooting and build instructions live on the **[DPM docs site](https://dinocdx.github.io/discord-presence-manager/)**.
@@ -59,14 +56,6 @@ The [docs](https://dinocdx.github.io/discord-presence-manager/) go into more det
 | Install packages | Installing downloaded updates |
 
 Your login is kept in encrypted preferences on the phone and is only ever sent to Discord.
-
-## Building
-
-```sh
-./gradlew assembleDebug
-```
-
-Release builds, signing and the GitHub release workflow are covered on the [build page](https://dinocdx.github.io/discord-presence-manager/build.html).
 
 ## Credits
 
