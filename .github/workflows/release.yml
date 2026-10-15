@@ -57,11 +57,19 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Install platform 36
+     - name: Install platform 36
         run: |
-          # GitHub's Ubuntu runners already include the Android SDK and sdkmanager.
-          yes | sdkmanager --licenses > /dev/null
-          sdkmanager "platforms;android-36"
+          set -e
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          # sdkmanager is not on PATH on the runner, so find the newest copy under the SDK.
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager not found under $ANDROID_HOME"
+            exit 1
+          fi
+          echo "Using $SDKMANAGER"
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses > /dev/null
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" "platforms;android-36"
 
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
