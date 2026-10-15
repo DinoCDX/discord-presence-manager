@@ -57,7 +57,7 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-     - name: Install platform 36
+      - name: Install platform 36
         run: |
           set -e
           export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
