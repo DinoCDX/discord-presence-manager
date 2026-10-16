@@ -1,5 +1,8 @@
 package com.dpm.app
 
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.WindowInsets
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.provider.Settings
@@ -136,18 +139,25 @@ fun AppsScreen(ui: UiState, listState: LazyListState = rememberLazyListState()) 
         }
     }
 
-    var query by remember { mutableStateOf("") }
+    val query = ui.appsQuery
     var filter by remember { mutableIntStateOf(0) }
     var open by remember { mutableStateOf<AppEntry?>(null) }
-    var searching by remember { mutableStateOf(false) }
+    val searching = ui.appsSearching
     var popularOpen by remember { mutableStateOf(false) }
     val popularEntries = remember(apps) { apps.filter { Apps.autoShow(it.pkg, it.category) } }
-    BackHandler(enabled = searching) {
-        searching = false
-        query = ""
-    }
+    BackHandler(enabled = searching) { ui.appsSearching = false }
     LaunchedEffect(searching) {
         if (searching) listState.animateScrollToItem(1)
+    }
+    val imeOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    var imeSeen by remember { mutableStateOf(false) }
+    LaunchedEffect(imeOpen) {
+        if (imeOpen) {
+            imeSeen = true
+        } else if (imeSeen) {
+            imeSeen = false
+            ui.appsSearching = false
+        }
     }
 
     val usageOk = remember(ui.permTick) { Perms.usage(ctx) }
@@ -236,7 +246,7 @@ fun AppsScreen(ui: UiState, listState: LazyListState = rememberLazyListState()) 
                 }
                 if (!searching) {
                     Spacer(Modifier.height(8.dp))
-                    SearchPill { searching = true }
+                    SearchPill(query, onOpen = { ui.appsSearching = true }, onClear = { ui.appsQuery = "" })
                 }
             }
         }
@@ -303,10 +313,11 @@ fun AppsScreen(ui: UiState, listState: LazyListState = rememberLazyListState()) 
     AnimatedVisibility(visible = searching) {
         SearchBar(
             query = query,
-            onQuery = { query = it },
-            onDone = {
-                searching = false
-                query = ""
+            onQuery = { ui.appsQuery = it },
+            onDone = { ui.appsSearching = false },
+            onClear = {
+                ui.appsQuery = ""
+                ui.appsSearching = false
             }
         )
     }
@@ -531,25 +542,35 @@ private fun AppSheet(a: AppEntry, ui: UiState) {
 }
 
 @Composable
-private fun SearchPill(onClick: () -> Unit) {
+private fun SearchPill(query: String, onOpen: () -> Unit, onClear: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     Row(
         Modifier
             .fillMaxWidth()
             .clip(CircleShape)
             .background(cs.surfaceContainerHigh)
-            .clickable(onClick = onClick)
+            .clickable(onClick = onOpen)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(Icons.Default.Search, null, tint = cs.onSurfaceVariant)
         Spacer(Modifier.width(12.dp))
-        Text("Search apps", style = MaterialTheme.typography.bodyLarge, color = cs.onSurfaceVariant)
+        Text(
+            if (query.isBlank()) "Search apps" else query,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (query.isBlank()) cs.onSurfaceVariant else cs.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        if (query.isNotBlank()) {
+            IconButton(onClick = onClear) { Icon(Icons.Default.Close, "Clear search", tint = cs.onSurfaceVariant) }
+        }
     }
 }
 
 @Composable
-private fun SearchBar(query: String, onQuery: (String) -> Unit, onDone: () -> Unit) {
+private fun SearchBar(query: String, onQuery: (String) -> Unit, onDone: () -> Unit, onClear: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
@@ -566,7 +587,7 @@ private fun SearchBar(query: String, onQuery: (String) -> Unit, onDone: () -> Un
             placeholder = { Text("Search apps") },
             leadingIcon = { Icon(Icons.Default.Search, null) },
             trailingIcon = {
-                if (query.isNotEmpty()) IconButton(onClick = { onQuery("") }) { Icon(Icons.Default.Close, "Clear") }
+                IconButton(onClick = onClear) { Icon(Icons.Default.Close, "Clear and close") }
             },
             singleLine = true,
             shape = CircleShape,

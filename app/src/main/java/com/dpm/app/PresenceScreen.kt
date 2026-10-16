@@ -89,11 +89,10 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
     }
 
     LaunchedEffect(ui.sType, ui.sName, ui.sDetails, ui.sState, ui.sB1L, ui.sB1U, ui.sB2L, ui.sB2U) {
-        delay(400)
         ui.saveStatic()
     }
     DisposableEffect(Unit) {
-        onDispose { ui.saveStatic() }
+        onDispose { ui.flushStatic() }
     }
     val live = if (ui.mode == "static") ui.staticPreview() else preview
 
@@ -107,7 +106,7 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
 
     Column(
         Modifier.verticalScroll(scroll).padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Gap14
+        verticalArrangement = Gap12
     ) {
         if (!notifGranted && Build.VERSION.SDK_INT >= 33) {
             Banner(
@@ -211,7 +210,7 @@ private fun HeroCard(ui: UiState, liveNow: Boolean, gate: String?, hasLive: Bool
         shape = MaterialTheme.shapes.extraLargeIncreased,
         colors = CardDefaults.cardColors(containerColor = heroBg)
     ) {
-        Column(Modifier.padding(24.dp)) {
+        Column(Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Share my presence", style = MaterialTheme.typography.titleLargeEmphasized, color = heroTitle)

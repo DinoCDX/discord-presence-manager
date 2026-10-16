@@ -119,7 +119,7 @@ fun SectionCard(title: String? = null, modifier: Modifier = Modifier, content: @
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.9f))
     ) {
-        Column(Modifier.padding(20.dp)) {
+        Column(Modifier.padding(16.dp)) {
             if (title != null) {
                 Text(title, style = MaterialTheme.typography.titleMediumEmphasized, color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(10.dp))
@@ -146,7 +146,7 @@ fun ToggleRow(
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 onChange(!checked)
             }
-            .padding(vertical = 8.dp),
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
@@ -191,7 +191,7 @@ fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, mod
                     options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
                     else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                 }
-            ) { Text(label) }
+            ) { Text(label, maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelMedium) }
         }
     }
 }
@@ -210,6 +210,7 @@ fun Field(
         onValueChange = onChange,
         label = { Text(label) },
         supportingText = if (hint != null) ({ Text(hint) }) else null,
+        trailingIcon = { if (value.isNotEmpty()) IconButton(onClick = { onChange("") }) { Icon(Icons.Default.Close, "Clear $label") } },
         singleLine = true,
         shape = MaterialTheme.shapes.large,
         keyboardOptions = KeyboardOptions(imeAction = if (last) ImeAction.Done else ImeAction.Next),
@@ -336,3 +337,5 @@ fun StatusPill(up: Boolean, label: String, modifier: Modifier = Modifier) {
 }
 
 val Gap14 = Arrangement.spacedBy(14.dp)
+
+val Gap12 = Arrangement.spacedBy(12.dp)

@@ -1,5 +1,8 @@
 package com.dpm.app
 
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.Icons
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -153,10 +156,15 @@ private fun ArtBox(info: Info) {
     val icon by produceState<Bitmap?>(AppIcons.cached(pkg, 192), pkg) {
         if (value == null) value = withContext(Dispatchers.IO) { AppIcons.get(ctx, pkg, 192) }
     }
-    // Discord can only show cover art from a public https link, so the preview matches that.
-    val cover = info.bitmap?.takeIf { info.artUri?.startsWith("https://") == true }
+    val httpsCover = info.artUri?.startsWith("https://") == true
+    val lookedUp by produceState<String?>(null, info.details, info.state, httpsCover) {
+        value = if (httpsCover) null else withContext(Dispatchers.IO) {
+            Art.coverLookup(info.details.orEmpty(), info.state.orEmpty())
+        }
+    }
+    val fallbackPic = rememberPicture(lookedUp.orEmpty())
+    val cover = if (httpsCover) info.bitmap else fallbackPic
     val big = cover ?: icon
-    val small = if (cover != null) icon else null
     Box(Modifier.size(80.dp)) {
         if (big != null) {
             Image(
@@ -166,17 +174,36 @@ private fun ArtBox(info: Info) {
                 modifier = Modifier.size(80.dp).clip(RoundedCornerShape(24.dp))
             )
         }
-        if (small != null) {
-            Image(
-                bitmap = small.asImageBitmap(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .offset(6.dp, 6.dp)
-                    .size(30.dp)
-                    .clip(CircleShape)
-                    .border(2.dp, MaterialTheme.colorScheme.surfaceContainer, CircleShape)
+        StateBadge(info.paused, Modifier.align(Alignment.BottomEnd).offset(6.dp, 6.dp))
+    }
+}
+
+@Composable
+private fun StateBadge(paused: Boolean, modifier: Modifier) {
+    Box(
+        modifier
+            .size(30.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainer),
+        contentAlignment = Alignment.Center
+    ) {
+        if (paused) {
+            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                repeat(2) {
+                    Box(
+                        Modifier
+                            .size(width = 4.dp, height = 14.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+                }
+            }
+        } else {
+            Icon(
+                Icons.Default.PlayArrow,
+                contentDescription = "Playing",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp)
             )
         }
     }

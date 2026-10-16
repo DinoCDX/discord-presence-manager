@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="w_surface">#FFFBF8FD</color>
+    <color name="w_container">#FFEFEDF4</color>
+    <color name="w_on_surface">#FF1B1B21</color>
+    <color name="w_on_variant">#FF46464F</color>
+    <color name="w_primary">#FF4752C4</color>
+    <color name="w_on_primary">#FFFFFFFF</color>
+    <color name="w_chip">#FFE4E1E9</color>
+    <color name="w_live">#FF23A55A</color>
+    <color name="w_idle">#FF777680</color>
+</resources>

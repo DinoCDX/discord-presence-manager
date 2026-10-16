@@ -30,12 +30,14 @@ class Info(
     val buttons: List<Pair<String, String>> = emptyList(),
     val largeFile: String? = null,
     val smallFile: String? = null,
-    val largeText: String? = null
+    val largeText: String? = null,
+    val smallText: String? = null,
+    val paused: Boolean = false
 ) {
     val key: String get() = "$name|$details|$state"
 
     fun copyWithButtons(buttons: List<Pair<String, String>>) = Info(
-        type, name, details, state, album, start, end, pkg, artUri, bitmap, source, link, buttons, largeFile, smallFile, largeText
+        type, name, details, state, album, start, end, pkg, artUri, bitmap, source, link, buttons, largeFile, smallFile, largeText, smallText, paused
     )
 }
 
@@ -43,6 +45,13 @@ object Dynamic {
     private var lastPkg = ""
     private var since = 0L
     private var mKey = ""
+    private var lastLive: Info? = null
+    private var lastLiveAt = 0L
+    private var lastRawPos = Long.MIN_VALUE
+    private const val PLAY_URL = "https://raw.githubusercontent.com/DinoCDX/discord-presence-manager/main/docs/assets/play.png"
+    private const val PAUSE_URL = "https://raw.githubusercontent.com/DinoCDX/discord-presence-manager/main/docs/assets/pause.png"
+    private const val HOLD_MS = 8_000L
+    private var loggedKey = ""
     private var mStart = 0L
     private var homePkg: String? = null
     private var homeAt = 0L
@@ -70,7 +79,8 @@ object Dynamic {
             buttons = btns,
             largeFile = Store.get(c, "s_large", "").ifEmpty { null },
             smallFile = Store.get(c, "s_small", "").ifEmpty { null },
-            largeText = Store.get(c, "s_large_text", "").trim().ifEmpty { null }
+            largeText = Store.get(c, "s_large_text", "").trim().ifEmpty { null },
+            smallText = Store.get(c, "s_small_text", "").trim().ifEmpty { null }
         )
     }
 
@@ -100,7 +110,14 @@ object Dynamic {
         }
         found = out
         winner = pick?.source
-        pick?.let { return it.copyWithButtons(buttonsFor(c, it)) }
+        pick?.let {
+            lastLive = it
+            lastLiveAt = System.currentTimeMillis()
+            return it.copyWithButtons(buttonsFor(c, it))
+        }
+        lastLive?.takeIf { System.currentTimeMillis() - lastLiveAt < HOLD_MS }?.let {
+            return it.copyWithButtons(buttonsFor(c, it))
+        }
         return if (Store.get(c, "static_fallback", "0") == "1") staticInfo(c) else null
     }
 
@@ -136,11 +153,23 @@ object Dynamic {
         return o
     }
 
+    private fun stateIcon(c: Context, i: Info): Pair<String, String>? {
+        val app = Art.appId(c)
+        if (!Art.validId(app)) return null
+        val mp = Art.external(c, app, if (i.paused) PAUSE_URL else PLAY_URL) ?: return null
+        return mp to if (i.paused) "Paused" else "Playing"
+    }
+
     private fun addAssets(c: Context, o: JSONObject, i: Info) {
         val r = (if (i.pkg != null) Art.resolve(c, i) else Art.resolveStatic(c, i)) ?: return
         val assets = JSONObject().put("large_image", r.big)
         (i.largeText ?: i.album ?: i.details)?.let { assets.put("large_text", it) }
-        r.small?.let { assets.put("small_image", it).put("small_text", i.name) }
+        val state = if (i.pkg != null) stateIcon(c, i) else null
+        if (state != null) {
+            assets.put("small_image", state.first).put("small_text", state.second)
+        } else {
+            r.small?.let { assets.put("small_image", it).put("small_text", i.smallText ?: i.name) }
+        }
         o.put("assets", assets)
     }
 
@@ -202,7 +231,11 @@ object Dynamic {
             val now = System.currentTimeMillis()
             val key = "${ctl.packageName}|$title|$artist|$dur"
             var start: Long
-            if (ps.position >= 0) {
+            val frozen = key == mKey && ps.position == lastRawPos
+            lastRawPos = ps.position
+            if (frozen) {
+                start = mStart
+            } else if (ps.position >= 0) {
                 var pos = ps.position
                 if (ps.lastPositionUpdateTime > 0) {
                     pos += ((SystemClock.elapsedRealtime() - ps.lastPositionUpdateTime) * ps.playbackSpeed).toLong()
@@ -224,20 +257,27 @@ object Dynamic {
                 ?: md.getBitmap(MediaMetadata.METADATA_KEY_ART)
                 ?: md.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
             val pkg = ctl.packageName
-            Info(
+            val paused = ps.state != PlaybackState.STATE_PLAYING
+            val media = Info(
                 type = if (Apps.isWatching(pkg, category(c, pkg))) 3 else 2,
                 name = appLabel(c, pkg),
                 details = title,
                 state = artist,
                 album = album,
-                start = start,
-                end = if (dur > 0) start + dur else null,
+                start = if (paused) null else start,
+                end = if (paused || dur <= 0) null else start + dur,
                 pkg = pkg,
                 artUri = uri,
                 bitmap = bmp,
                 source = if (video) Sources.VIDEO else Sources.MUSIC,
-                link = md.getString(MediaMetadata.METADATA_KEY_MEDIA_URI)
+                link = md.getString(MediaMetadata.METADATA_KEY_MEDIA_URI),
+                paused = paused
             )
+            if (mKey != loggedKey) {
+                loggedKey = mKey
+                Logs.add("media pkg=$pkg artUri=${uri ?: "none"} bitmap=${bmp != null} pos=${ps.position}")
+            }
+            media
         } catch (e: SecurityException) {
             null
         }

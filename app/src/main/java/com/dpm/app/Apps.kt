@@ -22,6 +22,8 @@ object Apps {
         AppDef("com.plexapp.android", 3, icon = dash("plex")),
         AppDef("org.videolan.vlc", 3, icon = dash("vlc")),
         AppDef("com.mxtech.videoplayer.ad", 3),
+        AppDef("com.metrolist.music", 2, auto = false, icon = "https://raw.githubusercontent.com/MetrolistGroup/Metrolist/main/fastlane/metadata/android/en-US/images/icon.png"),
+        AppDef("com.metrolist.music.kmp", 2, auto = false, icon = "https://raw.githubusercontent.com/MetrolistGroup/Metrolist/main/fastlane/metadata/android/en-US/images/icon.png"),
         AppDef("com.spotify.music", 2, auto = false, icon = dash("spotify")),
         AppDef("com.google.android.apps.youtube.music", 2, auto = false, icon = dash("youtube-music")),
         AppDef("com.apple.android.music", 2, auto = false, icon = dash("apple-music")),

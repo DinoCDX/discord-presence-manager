@@ -1,5 +1,7 @@
 package com.dpm.app
 
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -107,6 +109,7 @@ class MainActivity : ComponentActivity() {
         val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
         val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
 
+        Box(Modifier.fillMaxSize()) {
         Scaffold(
             topBar = {
                 Column(Modifier.statusBarsPadding().padding(start = 20.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)) {
@@ -181,6 +184,14 @@ class MainActivity : ComponentActivity() {
                 }
             }
             }
+        }
+        AnimatedVisibility(
+            visible = ui.presetsOpen,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            PresetsScreen(ui)
+        }
         }
     }
 

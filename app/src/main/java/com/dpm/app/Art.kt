@@ -4,6 +4,9 @@ import android.content.Context
 import android.graphics.Bitmap
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 
 object Art {
@@ -16,6 +19,7 @@ object Art {
     private const val SIZE = 512
 
     private val cache = ConcurrentHashMap<String, Entry>()
+    private val lookups = ConcurrentHashMap<String, String>()
     private val externalPaths = ConcurrentHashMap<String, String>()
     private val extLock = Any()
     private const val EXT_KEY = "external_paths"
@@ -34,6 +38,49 @@ object Art {
         if (validId(stored)) return stored
         val built = DiscordOAuth.clientId(c)
         return if (validId(built)) built else ""
+    }
+
+    fun coverLookup(title: String, artist: String): String? {
+        val t = title.trim()
+        val a = artist.trim()
+        if (t.isEmpty() || a.isEmpty()) return null
+        val key = "$t|$a"
+        lookups[key]?.let { return it.ifEmpty { null } }
+        val found = try {
+            fetchCover(t, a)
+        } catch (e: Exception) {
+            null
+        }
+        lookups[key] = found.orEmpty()
+        return found
+    }
+
+    private fun fetchCover(title: String, artist: String): String? {
+        val term = URLEncoder.encode("$artist $title", "UTF-8")
+        val conn = URL("https://itunes.apple.com/search?term=$term&entity=song&limit=3")
+            .openConnection() as HttpURLConnection
+        return try {
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+            if (conn.responseCode !in 200..299) return null
+            val body = conn.inputStream.bufferedReader().use { it.readText() }
+            val results = JSONObject(body).optJSONArray("results") ?: return null
+            for (k in 0 until results.length()) {
+                val r = results.getJSONObject(k)
+                if (!sameArtist(r.optString("artistName"), artist)) continue
+                val art = r.optString("artworkUrl100").takeIf { it.startsWith("https://") } ?: continue
+                return art.replace("100x100bb", "600x600bb")
+            }
+            null
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    private fun sameArtist(found: String, wanted: String): Boolean {
+        val f = found.lowercase()
+        val w = wanted.lowercase()
+        return f.isNotEmpty() && (f.contains(w) || w.contains(f))
     }
 
     fun reset() {
@@ -137,6 +184,7 @@ object Art {
     private fun mediaImages(c: Context, app: String, pkg: String, i: Info): Resolved? {
         val icon = Apps.def(pkg)?.icon?.let { external(c, app, it) }
         val cover = i.artUri?.takeIf { it.startsWith("https://") }?.let { external(c, app, it) }
+            ?: coverLookup(i.details.orEmpty(), i.state.orEmpty())?.let { external(c, app, it) }
         if (cover != null) return Resolved(cover, icon)
         val big = icon ?: external(c, app, DEFAULT_IMAGE_URL) ?: return null
         return Resolved(big, null)

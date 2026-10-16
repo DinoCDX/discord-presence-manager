@@ -1,5 +1,6 @@
 package com.dpm.app
 
+import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -28,6 +29,28 @@ object GatewayClient {
 
     private var token: String? = null
     private var sessionToken: String? = null
+    private var storage: Context? = null
+    private const val SESSION_KEY = "headless_session"
+
+    fun attach(c: Context) {
+        storage = c.applicationContext
+    }
+
+    private fun setSession(t: String?) {
+        sessionToken = t
+        storage?.let { Store.put(it, SESSION_KEY, t.orEmpty()) }
+        if (t != null) Logs.add("headless session created") else Logs.add("headless session cleared")
+    }
+
+    private fun cleanupStoredSession(bearer: String) {
+        val s = storage ?: return
+        if (sessionToken != null) return
+        val stored = Store.get(s, SESSION_KEY, "")
+        if (stored.isEmpty()) return
+        Store.put(s, SESSION_KEY, "")
+        Logs.add("deleting leftover headless session")
+        scope.launch { deleteRemoteSession(bearer, stored) }
+    }
     private var accountName: String = "?"
     private var hb: Job? = null
     private var pushJob: Job? = null
@@ -59,12 +82,13 @@ object GatewayClient {
     @Synchronized
     fun connect(t: String) {
         if (wanted && token == t && ready) return
-        if (t != token) sessionToken = null
+        if (t != token) setSession(null)
         token = t
         wanted = true
         attempts = 0
         renewals = 0
         lastSentActivitiesJson = null
+        cleanupStoredSession(t)
         open()
     }
 
@@ -78,7 +102,7 @@ object GatewayClient {
         lastSentActivitiesJson = null
         val currentBearer = token
         val currentSession = sessionToken
-        sessionToken = null
+        setSession(null)
         setState("Disconnected")
 
         if (!currentBearer.isNullOrEmpty() && !currentSession.isNullOrEmpty()) {
@@ -192,7 +216,7 @@ object GatewayClient {
             val existingSession = sessionToken
             lastSentActivitiesJson = currentJson
             if (existingSession != null) {
-                sessionToken = null
+                setSession(null)
                 deleteRemoteSession(bearer, existingSession)
             }
             return
@@ -237,7 +261,7 @@ object GatewayClient {
                 if (resp.isSuccessful && body.isNotEmpty()) {
                     val json = JSONObject(body)
                     if (json.has("token")) {
-                        sessionToken = json.getString("token")
+                        setSession(json.getString("token"))
                     }
                 } else if (resp.code == 429) {
                     retryAfterMs = parseRetryAfterMs(body, resp.header("Retry-After"))
@@ -257,7 +281,7 @@ object GatewayClient {
 
         when (code) {
             400 -> if (sessionToken != null) {
-                sessionToken = null
+                setSession(null)
                 pushPresence(force = true)
             } else {
                 scheduleRetry(code, 0L, retryPushOnly = true, message = errText)

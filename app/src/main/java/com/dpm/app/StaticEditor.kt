@@ -1,5 +1,6 @@
 package com.dpm.app
 
+import androidx.compose.material.icons.filled.Edit
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
@@ -19,6 +20,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.SplitButtonDefaults
+import androidx.compose.material3.SplitButtonLayout
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -49,35 +54,32 @@ private const val LIMIT = 128
 @Composable
 fun StaticEditor(ui: UiState, now: Long) {
     val cs = MaterialTheme.colorScheme
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "Your own status",
-                style = MaterialTheme.typography.labelLarge,
-                color = cs.onSurfaceVariant,
-                modifier = Modifier.weight(1f)
-            )
+            PresetsRow(ui, Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
             SavedTag(ui, now)
         }
 
-        PresetsRow(ui)
+        TypeSegments(ui.sType) { ui.sType = it }
 
-        TypeDropdown(ui.sType) { ui.sType = it }
         Field(
             "Name",
             ui.sName,
-            hint = if (ui.sName.isBlank()) "Required. This is the title Discord shows" else "${ui.sName.length}/$LIMIT"
+            hint = if (ui.sName.isBlank()) "Required" else "${ui.sName.length}/$LIMIT"
         ) { ui.sName = it.take(LIMIT) }
         Field("Details", ui.sDetails, hint = "${ui.sDetails.length}/$LIMIT") { ui.sDetails = it.take(LIMIT) }
         Field("State", ui.sState, hint = "${ui.sState.length}/$LIMIT", last = true) { ui.sState = it.take(LIMIT) }
 
         Text("Images", style = MaterialTheme.typography.titleSmall, color = cs.primary)
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             ImagePick("Large", ui.sLarge) { ui.setImage(true, it) }
             ImagePick("Small", ui.sSmall) { ui.setImage(false, it) }
         }
-        Field("Large text", ui.sLargeText, hint = "Hover text for the large picture. Optional") { ui.sLargeText = it.take(LIMIT) }
-
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Field("Large text", ui.sLargeText, Modifier.weight(1f), hint = "Optional") { ui.sLargeText = it.take(LIMIT) }
+            Field("Small text", ui.sSmallText, Modifier.weight(1f), hint = "Optional") { ui.sSmallText = it.take(LIMIT) }
+        }
 
         if (ui.sType == 5) {
             Text(
@@ -93,59 +95,63 @@ fun StaticEditor(ui: UiState, now: Long) {
         ButtonFields(1, ui.sB1L, ui.sB1U, { ui.sB1L = it.take(32) }, { ui.sB1U = it })
         ButtonFields(2, ui.sB2L, ui.sB2U, { ui.sB2L = it.take(32) }, { ui.sB2U = it })
 
-        if (ui.sName.isNotEmpty() || ui.sDetails.isNotEmpty() || ui.sState.isNotEmpty()) {
-            ExpTextButton(onClick = { ui.clearStatic() }, modifier = Modifier.align(Alignment.End)) {
-                Text("Clear text")
-            }
-        }
+        ResetRow(ui)
     }
 }
 
 @Composable
-private fun TypeDropdown(selected: Int, onSelect: (Int) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    val index = ActivityTypeVals.indexOf(selected).coerceAtLeast(0)
-    Box {
-        ExpOutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth()) {
-            Text(ActivityTypeNames[index])
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            ActivityTypeVals.forEachIndexed { i, t ->
-                DropdownMenuItem(
-                    text = { Text(ActivityTypeNames[i]) },
-                    onClick = {
-                        onSelect(t)
-                        open = false
-                    }
-                )
-            }
-        }
-    }
+private fun TypeSegments(selected: Int, onSelect: (Int) -> Unit) {
+    val labels = listOf("Play", "Listen", "Watch", "Compete")
+    Segmented(
+        labels,
+        ActivityTypeVals.indexOf(selected).coerceAtLeast(0),
+        { onSelect(ActivityTypeVals[it]) }
+    )
 }
 
 @Composable
-private fun PresetsRow(ui: UiState) {
+private fun PresetsRow(ui: UiState, modifier: Modifier = Modifier) {
     var naming by remember { mutableStateOf(false) }
     var open by remember { mutableStateOf(false) }
-    Box {
-        ExpOutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth()) {
-            Text("Presets")
-        }
+    Box(modifier) {
+        SplitButtonLayout(
+            leadingButton = {
+                SplitButtonDefaults.LeadingButton(
+                    onClick = { naming = true },
+                    enabled = ui.sName.isNotBlank()
+                ) {
+                    Icon(Icons.Default.Add, null, Modifier.size(ButtonDefaults.IconSize))
+                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                    Text("Save preset")
+                }
+            },
+            trailingButton = {
+                SplitButtonDefaults.TrailingButton(
+                    checked = open,
+                    onCheckedChange = { open = it }
+                ) {
+                    Icon(Icons.Default.KeyboardArrowDown, "Presets", Modifier.size(ButtonDefaults.IconSize))
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             ui.presets.forEach { p ->
                 DropdownMenuItem(
                     text = { Text(p.label, maxLines = 1) },
-                    onClick = { ui.applyPreset(p); open = false },
-                    trailingIcon = {
-                        IconButton(onClick = { ui.deletePreset(p) }) { Icon(Icons.Default.Close, "Delete preset") }
+                    onClick = {
+                        ui.applyPreset(p)
+                        open = false
                     }
                 )
             }
             DropdownMenuItem(
-                text = { Text("Save current") },
-                enabled = ui.sName.isNotBlank(),
-                leadingIcon = { Icon(Icons.Default.Add, null) },
-                onClick = { open = false; naming = true }
+                text = { Text("Manage presets") },
+                leadingIcon = { Icon(Icons.Default.Edit, null) },
+                onClick = {
+                    open = false
+                    ui.openPresets()
+                }
             )
         }
     }
@@ -171,13 +177,13 @@ private fun ImagePick(label: String, file: String, onPicked: (String) -> Unit) {
     val bmp = rememberPicture(file)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
-            Modifier.size(88.dp).clip(MaterialTheme.shapes.large).background(cs.surfaceContainerHigh)
+            Modifier.size(76.dp).clip(MaterialTheme.shapes.large).background(cs.surfaceContainerHigh)
                 .clickable { linking = true },
             contentAlignment = Alignment.Center
         ) {
             val b = bmp
             when {
-                b != null -> Image(b.asImageBitmap(), null, Modifier.size(88.dp), contentScale = ContentScale.Crop)
+                b != null -> Image(b.asImageBitmap(), null, Modifier.size(76.dp), contentScale = ContentScale.Crop)
                 isLink -> Text("Link", style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
                 else -> Icon(Icons.Default.Add, "Add $label image link", tint = cs.onSurfaceVariant)
             }
@@ -311,3 +317,32 @@ private fun clock24(t: Long): String {
     val c = java.util.Calendar.getInstance().apply { timeInMillis = t }
     return "%02d:%02d".format(c.get(java.util.Calendar.HOUR_OF_DAY), c.get(java.util.Calendar.MINUTE))
 }
+
+@Composable
+private fun ResetRow(ui: UiState) {
+    var asking by remember { mutableStateOf(false) }
+    val hasText = ui.sName.isNotEmpty() || ui.sDetails.isNotEmpty() || ui.sState.isNotEmpty()
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        if (hasText) {
+            ExpTextButton(onClick = { ui.clearStatic() }) { Text("Clear text") }
+        }
+        ExpTextButton(onClick = { asking = true }) { Text("Reset all") }
+    }
+    if (asking) {
+        AlertDialog(
+            onDismissRequest = { asking = false },
+            title = { Text("Reset everything?") },
+            text = {
+                Text("Clears the type, text, images, timer and buttons. Saved presets stay.")
+            },
+            confirmButton = {
+                ExpButton(onClick = {
+                    asking = false
+                    ui.resetStatic()
+                }) { Text("Reset") }
+            },
+            dismissButton = { ExpTextButton(onClick = { asking = false }) { Text("Cancel") } }
+        )
+    }
+}
+

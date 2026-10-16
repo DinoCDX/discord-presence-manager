@@ -104,6 +104,7 @@ class PresenceService : Service() {
         }
         alive = true
         startFg(buildNotification(null, "Starting", null))
+        GatewayClient.attach(this)
         GatewayClient.defaultAppId = Art.appId(this)
         GatewayClient.connect(token)
 

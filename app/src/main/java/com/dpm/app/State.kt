@@ -1,11 +1,15 @@
 package com.dpm.app
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+
+private const val SAVE_DELAY_MS = 3000L
 
 class UiState(private val c: Context) {
     var accounts by mutableStateOf(listOf<Account>())
@@ -35,10 +39,14 @@ class UiState(private val c: Context) {
     var sSmall by mutableStateOf("")
         private set
     var sLargeText by mutableStateOf("")
+    var sSmallText by mutableStateOf("")
     var sB1L by mutableStateOf("")
     var sB1U by mutableStateOf("")
     var sB2L by mutableStateOf("")
     var sB2U by mutableStateOf("")
+    var appsQuery by mutableStateOf("")
+    var appsSearching by mutableStateOf(false)
+    var presetsOpen by mutableStateOf(false)
     var presets by mutableStateOf(listOf<Preset>())
         private set
     @set:JvmName("assignBtnVideo") var btnVideo by mutableStateOf(true)
@@ -106,6 +114,7 @@ class UiState(private val c: Context) {
         sB1U = Store.get(c, "s_b1u", "")
         sB2L = Store.get(c, "s_b2l", "")
         sB2U = Store.get(c, "s_b2u", "")
+        sSmallText = Store.get(c, "s_small_text", "")
         presets = Presets.all(c)
     }
 
@@ -180,13 +189,23 @@ class UiState(private val c: Context) {
         "s_b1l" to sB1L.trim(),
         "s_b1u" to sB1U.trim(),
         "s_b2l" to sB2L.trim(),
-        "s_b2u" to sB2U.trim()
+        "s_b2u" to sB2U.trim(),
+        "s_small_text" to sSmallText.trim(),
     )
 
+    private val saveHandler = Handler(Looper.getMainLooper())
+    private val flushTask = Runnable { flushStatic() }
+
     fun saveStatic() {
+        saveHandler.removeCallbacks(flushTask)
+        saveHandler.postDelayed(flushTask, SAVE_DELAY_MS)
+    }
+
+    fun flushStatic() {
+        saveHandler.removeCallbacks(flushTask)
         var changed = false
         staticValues().forEach { (k, v) ->
-            if (Store.get(c, k, if (k == "s_dur") "60" else if (k == "s_tmode") "off" else if (k == "s_started" || k == "s_end") "0" else if (k == "s_type") "0" else "") != v) {
+            if (Store.get(c, k, staticDefault(k)) != v) {
                 Store.put(c, k, v)
                 changed = true
             }
@@ -201,18 +220,18 @@ class UiState(private val c: Context) {
         sDetails = ""
         sState = ""
         sLargeText = ""
-        saveStatic()
+        flushStatic()
     }
 
     fun setTimerMode(m: String) {
         sTimerMode = m
         if (m == "up" && sStarted <= 0L) sStarted = System.currentTimeMillis()
-        saveStatic()
+        flushStatic()
     }
 
     fun resetElapsed() {
         sStarted = System.currentTimeMillis()
-        saveStatic()
+        flushStatic()
     }
 
     fun setStartedAt(hour: Int, minute: Int) {
@@ -223,37 +242,111 @@ class UiState(private val c: Context) {
         var t = cal.timeInMillis
         if (t > System.currentTimeMillis()) t -= 24L * 60 * 60 * 1000
         sStarted = t
-        saveStatic()
+        flushStatic()
     }
 
     fun setDuration(min: Int) {
         sDur = min.coerceIn(1, 24 * 60)
-        saveStatic()
+        flushStatic()
     }
 
     fun startCountdown() {
         sEnd = System.currentTimeMillis() + sDur * 60_000L
         sTimerMode = "down"
-        saveStatic()
+        flushStatic()
     }
 
     fun setImage(large: Boolean, name: String) {
         val old = if (large) sLarge else sSmall
         if (large) sLarge = name else sSmall = name
-        saveStatic()
+        flushStatic()
         if (old != name) StaticFiles.prune(c, old)
     }
 
+    private fun staticDefault(k: String): String = when (k) {
+        "s_dur" -> "60"
+        "s_tmode" -> "off"
+        "s_started", "s_end" -> "0"
+        "s_type" -> "0"
+        else -> ""
+    }
+
+    fun resetStatic() {
+        val oldLarge = sLarge
+        val oldSmall = sSmall
+        sType = 0
+        sName = ""
+        sDetails = ""
+        sState = ""
+        sLargeText = ""
+        sSmallText = ""
+        sB1L = ""
+        sB1U = ""
+        sB2L = ""
+        sB2U = ""
+        sTimerMode = "off"
+        sStarted = 0L
+        sEnd = 0L
+        sDur = 60
+        sLarge = ""
+        sSmall = ""
+        flushStatic()
+        StaticFiles.prune(c, oldLarge)
+        StaticFiles.prune(c, oldSmall)
+    }
+
+    private fun currentPreset(id: String, label: String) = Preset(
+        id, label, sType, sName, sDetails, sState, sTimerMode, sDur, sLarge, sSmall,
+        sB1L, sB1U, sB2L, sB2U, sLargeText,
+        sSmallText
+    )
+
     fun savePreset(label: String) {
-        val p = Preset(
-            System.currentTimeMillis().toString(), label.trim().ifEmpty { sName.ifEmpty { "Preset" } },
-            sType, sName, sDetails, sState, sTimerMode, sDur, sLarge, sSmall, sB1L, sB1U, sB2L, sB2U, sLargeText
-        )
-        presets = presets + p
+        val name = label.trim().ifEmpty { sName.trim().ifEmpty { "Preset" } }
+        presets = presets + currentPreset(System.currentTimeMillis().toString(), name)
+        Presets.save(c, presets)
+    }
+
+    fun renamePreset(p: Preset, label: String) {
+        val t = label.trim()
+        if (t.isEmpty()) return
+        replacePreset(p.id) { it.copy(label = t) }
+    }
+
+    fun overwritePreset(p: Preset) {
+        val old = presets.firstOrNull { it.id == p.id } ?: return
+        replacePreset(p.id) { currentPreset(it.id, it.label) }
+        StaticFiles.prune(c, old.large)
+        StaticFiles.prune(c, old.small)
+    }
+
+    fun duplicatePreset(p: Preset) {
+        val i = presets.indexOfFirst { it.id == p.id }
+        if (i < 0) return
+        val copy = p.copy(id = System.currentTimeMillis().toString(), label = "${p.label} copy")
+        presets = presets.toMutableList().apply { add(i + 1, copy) }
+        Presets.save(c, presets)
+    }
+
+    fun movePreset(p: Preset, by: Int) {
+        val list = presets.toMutableList()
+        val i = list.indexOfFirst { it.id == p.id }
+        val j = i + by
+        if (i < 0 || j !in list.indices) return
+        list.removeAt(i)
+        list.add(j, p)
+        presets = list
+        Presets.save(c, presets)
+    }
+
+    private fun replacePreset(id: String, f: (Preset) -> Preset) {
+        presets = presets.map { if (it.id == id) f(it) else it }
         Presets.save(c, presets)
     }
 
     fun applyPreset(p: Preset) {
+        val oldLarge = sLarge
+        val oldSmall = sSmall
         sType = p.type
         sName = p.name
         sDetails = p.details
@@ -262,6 +355,7 @@ class UiState(private val c: Context) {
         sLarge = p.large
         sSmall = p.small
         sLargeText = p.largeText
+        sSmallText = p.smallText
         sB1L = p.b1l
         sB1U = p.b1u
         sB2L = p.b2l
@@ -270,7 +364,9 @@ class UiState(private val c: Context) {
         val now = System.currentTimeMillis()
         if (p.timerMode == "up") sStarted = now
         if (p.timerMode == "down") sEnd = now + p.durMin * 60_000L
-        saveStatic()
+        flushStatic()
+        if (oldLarge != p.large) StaticFiles.prune(c, oldLarge)
+        if (oldSmall != p.small) StaticFiles.prune(c, oldSmall)
     }
 
     fun deletePreset(p: Preset) {
@@ -296,8 +392,13 @@ class UiState(private val c: Context) {
             buttons = btns,
             largeFile = sLarge.ifEmpty { null },
             smallFile = sSmall.ifEmpty { null },
-            largeText = sLargeText.trim().ifEmpty { null }
+            largeText = sLargeText.trim().ifEmpty { null },
+            smallText = sSmallText.trim().ifEmpty { null },
         )
+    }
+
+    fun openPresets() {
+        presetsOpen = true
     }
 
     private fun markSaved() {

@@ -64,6 +64,7 @@ fun SettingsScreen(
         AccountsCard(ui, onSwitch, onAdd) { confirm = it }
         AppearanceCard(ui)
         PresenceSettingsCard(ui)
+        PresetsCard(ui)
         PicturesCard(ui)
         UpdatesCard()
         AboutCard(ui, onReplayIntro)
@@ -375,5 +376,22 @@ private fun DevLogs() {
                 modifier = Modifier.weight(1f)
             ) { Text("Clear") }
         }
+    }
+}
+
+@Composable
+private fun PresetsCard(ui: UiState) {
+    SectionCard("Presets") {
+        Text(
+            if (ui.presets.isEmpty()) {
+                "Save statuses in the static editor, then rename, reorder or preview them here."
+            } else {
+                "${ui.presets.size} saved. Rename, reorder, preview or use them here."
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(10.dp))
+        ExpTonalButton(onClick = { ui.openPresets() }, modifier = Modifier.fillMaxWidth()) { Text("Open presets") }
     }
 }

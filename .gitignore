@@ -12,3 +12,4 @@ captures/
 *.aab
 *.jks
 .DS_Store
+*.zip
