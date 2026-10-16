@@ -6,6 +6,7 @@ DPM (Discord Presence Manager) puts what you're doing on your Android phone into
 
 <p align="center">
 <a href="https://github.com/DinoCDX/discord-presence-manager/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/DinoCDX/discord-presence-manager?style=flat-square&color=4752c4"></a>
+<a href="https://github.com/DinoCDX/discord-presence-manager/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/DinoCDX/discord-presence-manager/total?style=flat-square&color=4752c4"></a>
 <a href="https://dinocdx.github.io/discord-presence-manager/"><img alt="Docs" src="https://img.shields.io/badge/docs-website-4752c4?style=flat-square"></a>
 </p>
 
