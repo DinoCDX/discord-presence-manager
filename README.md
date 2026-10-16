@@ -16,7 +16,7 @@ DPM (Discord Presence Manager) puts what you're doing on your Android phone into
 
 ## Documentation
 
-Setup, features, permissions, images, troubleshooting and build instructions live on the **[DPM docs site](https://dinocdx.github.io/discord-presence-manager/)**.
+Setup, features, permissions, images, troubleshooting and build instructions live on the **[DPM docs](https://dinocdx.github.io/discord-presence-manager/)**.
 
 ## What you get
 
@@ -40,7 +40,7 @@ Download the APK from the [latest release](https://github.com/DinoCDX/discord-pr
 
 ## First run
 
-1. Go through the intro and log in with Discord. You approve DPM on Discord's own page, so captchas, 2FA and passkeys all work.
+1. Go through the intro and log in with Discord.
 2. Allow the permissions you're happy with. Every permission can be skipped.
 3. On the Presence tab, switch on Share my presence.
 4. On the Apps tab, choose which apps are allowed to show up.
@@ -65,4 +65,4 @@ Your login is kept in encrypted preferences on the phone and is only ever sent t
 
 ## Credits
 
-Made by [DinoCDX](https://github.com/DinoCDX). Built with Kotlin, Jetpack Compose, Material 3 Expressive, OkHttp and ZXing.
+Made by [DinoCDX](https://github.com/DinoCDX) with ❤️.
