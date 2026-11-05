@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -47,9 +48,9 @@ object Art {
         val key = "$t|$a"
         lookups[key]?.let { return it.ifEmpty { null } }
         val found = try {
-            fetchCover(t, a)
+            fetchCover(t, a) ?: fetchDeezerCover(t, a)
         } catch (e: Exception) {
-            null
+            return null
         }
         lookups[key] = found.orEmpty()
         return found
@@ -57,12 +58,12 @@ object Art {
 
     private fun fetchCover(title: String, artist: String): String? {
         val term = URLEncoder.encode("$artist $title", "UTF-8")
-        val conn = URL("https://itunes.apple.com/search?term=$term&entity=song&limit=3")
+        val conn = URL("https://itunes.apple.com/search?term=$term&entity=song&limit=10")
             .openConnection() as HttpURLConnection
         return try {
             conn.connectTimeout = 5000
             conn.readTimeout = 5000
-            if (conn.responseCode !in 200..299) return null
+            if (conn.responseCode !in 200..299) throw IOException("itunes ${conn.responseCode}")
             val body = conn.inputStream.bufferedReader().use { it.readText() }
             val results = JSONObject(body).optJSONArray("results") ?: return null
             for (k in 0 until results.length()) {
@@ -77,10 +78,40 @@ object Art {
         }
     }
 
+    private fun fetchDeezerCover(title: String, artist: String): String? {
+        val q = URLEncoder.encode("artist:\"$artist\" track:\"$title\"", "UTF-8")
+        val conn = URL("https://api.deezer.com/search?q=$q&limit=10").openConnection() as HttpURLConnection
+        return try {
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+            if (conn.responseCode !in 200..299) throw IOException("deezer ${conn.responseCode}")
+            val body = conn.inputStream.bufferedReader().use { it.readText() }
+            val data = JSONObject(body).optJSONArray("data") ?: return null
+            for (k in 0 until data.length()) {
+                val r = data.getJSONObject(k)
+                if (!sameArtist(r.optJSONObject("artist")?.optString("name").orEmpty(), artist)) continue
+                if (!sameTitle(r.optString("title"), title)) continue
+                val cover = r.optJSONObject("album")?.optString("cover_xl").orEmpty()
+                if (cover.startsWith("https://")) return cover
+            }
+            null
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    private fun norm(s: String): String = s.lowercase().replace(Regex("[^\\p{L}\\p{Nd}]"), "")
+
     private fun sameArtist(found: String, wanted: String): Boolean {
-        val f = found.lowercase()
-        val w = wanted.lowercase()
-        return f.isNotEmpty() && (f.contains(w) || w.contains(f))
+        val f = norm(found)
+        val w = norm(wanted)
+        return f.isNotEmpty() && w.isNotEmpty() && (f.contains(w) || w.contains(f))
+    }
+
+    private fun sameTitle(found: String, wanted: String): Boolean {
+        val f = norm(found.replace(Regex("\\(.*?\\)|\\[.*?\\]"), ""))
+        val w = norm(wanted.replace(Regex("\\(.*?\\)|\\[.*?\\]"), ""))
+        return f.isNotEmpty() && w.isNotEmpty() && (f.contains(w) || w.contains(f))
     }
 
     fun reset() {
@@ -182,9 +213,9 @@ object Art {
     }
 
     private fun mediaImages(c: Context, app: String, pkg: String, i: Info): Resolved? {
-        val icon = Apps.def(pkg)?.icon?.let { external(c, app, it) }
+        val icon = IconLookup.url(c, pkg)?.let { external(c, app, it) }
         val cover = i.artUri?.takeIf { it.startsWith("https://") }?.let { external(c, app, it) }
-            ?: coverLookup(i.details.orEmpty(), i.state.orEmpty())?.let { external(c, app, it) }
+            ?: coverLookup(i.details.orEmpty(), i.artist.orEmpty())?.let { external(c, app, it) }
         if (cover != null) return Resolved(cover, icon)
         val big = icon ?: external(c, app, DEFAULT_IMAGE_URL) ?: return null
         return Resolved(big, null)

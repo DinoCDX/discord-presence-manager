@@ -11,7 +11,17 @@ import androidx.core.content.ContextCompat
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.content.ComponentName
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.graphics.Bitmap
+import android.media.MediaMetadata
+import android.media.session.MediaController
+import android.media.session.MediaSession
+import android.media.session.MediaSessionManager
+import android.media.session.PlaybackState
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -37,6 +47,38 @@ class PresenceService : Service() {
         override fun onReceive(c: Context, i: Intent) {
             kick()
         }
+    }
+
+    private val watched = HashMap<MediaSession.Token, MediaController>()
+
+    private val mediaCallback = object : MediaController.Callback() {
+        override fun onPlaybackStateChanged(state: PlaybackState?) = kick()
+        override fun onMetadataChanged(metadata: MediaMetadata?) = kick()
+        override fun onSessionDestroyed() = kick()
+    }
+
+    private val sessionsListener = MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
+        watchSessions(controllers?.toList() ?: emptyList())
+        kick()
+    }
+
+    private fun watchSessions(list: List<MediaController>) {
+        val current = list.associateBy { it.sessionToken }
+        watched.keys.filter { it !in current }.forEach { k ->
+            watched.remove(k)?.unregisterCallback(mediaCallback)
+        }
+        current.forEach { (k, ctl) ->
+            if (k !in watched) {
+                ctl.registerCallback(mediaCallback)
+                watched[k] = ctl
+            }
+        }
+    }
+
+    private val netCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) = kick()
+        override fun onLost(network: Network) = kick()
+        override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) = kick()
     }
 
     companion object {
@@ -74,6 +116,20 @@ class PresenceService : Service() {
             IntentFilter(Intent.ACTION_SCREEN_ON),
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
+        try {
+            val msm = getSystemService(MediaSessionManager::class.java)
+            val listener = ComponentName(this, MediaListener::class.java)
+            msm.addOnActiveSessionsChangedListener(sessionsListener, listener)
+            watchSessions(msm.getActiveSessions(listener))
+        } catch (e: SecurityException) {
+        }
+        try {
+            getSystemService(ConnectivityManager::class.java).registerNetworkCallback(
+                NetworkRequest.Builder().addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build(),
+                netCallback
+            )
+        } catch (e: Exception) {
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -129,7 +185,9 @@ class PresenceService : Service() {
     private fun tick() {
         if (Store.get(this, "only_online", "0") == "1") UserStatus.refresh(this)
         val gate = Logic.gate(this)
-        val info = if (gate == null) Logic.info(this) else null
+        val preview = Logic.info(this)
+        Live.publish(Live.Snapshot(preview, gate, Dynamic.found, Dynamic.winner))
+        val info = if (gate == null) preview else null
         val arr = JSONArray()
         if (info != null) arr.put(Dynamic.toJson(this, info))
         val s = arr.toString()
@@ -165,7 +223,7 @@ class PresenceService : Service() {
             }
             paused -> {
                 title = "Presence paused"
-                text = "Nothing is shown on Discord"
+                text = gate ?: "Nothing is shown on Discord"
             }
             gate != null -> {
                 title = "Presence waiting"
@@ -223,6 +281,17 @@ class PresenceService : Service() {
         alive = false
         try {
             unregisterReceiver(screenReceiver)
+        } catch (e: Exception) {
+        }
+        try {
+            getSystemService(MediaSessionManager::class.java)
+                .removeOnActiveSessionsChangedListener(sessionsListener)
+        } catch (e: Exception) {
+        }
+        watched.values.forEach { it.unregisterCallback(mediaCallback) }
+        watched.clear()
+        try {
+            getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(netCallback)
         } catch (e: Exception) {
         }
         job?.cancel()

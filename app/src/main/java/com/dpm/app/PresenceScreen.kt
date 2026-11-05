@@ -9,6 +9,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +26,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -38,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TimeInput
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,44 +53,47 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = rememberScrollState()) {
     val ctx = LocalContext.current
     val cs = MaterialTheme.colorScheme
 
-    var preview by remember { mutableStateOf<Info?>(null) }
-    var gate by remember { mutableStateOf<String?>(null) }
-    var found by remember { mutableStateOf<Map<String, Info?>>(emptyMap()) }
-    var winner by remember { mutableStateOf<String?>(null) }
-    var rejected by remember { mutableStateOf(false) }
+    val snap by Live.flow.collectAsState()
+    val conn by Live.connection.collectAsState()
+    val sentAt by Live.lastSent.collectAsState()
+    var fresh by remember { mutableStateOf<Live.Snapshot?>(null) }
+    LaunchedEffect(ui.running, ui.paused, ui.mode, ui.schedOn, ui.onlyOnline, ui.fallbackStatic, ui.netRule, ui.permTick) {
+        if (!PresenceService.alive) fresh = withContext(Dispatchers.IO) { Live.compute(ctx) }
+    }
+    val shown = if (PresenceService.alive) snap else fresh ?: snap
+    val preview = shown.info
+    val gate = shown.gate
+    val found = shown.found
+    val winner = shown.winner
+    val rejected = conn.startsWith("Token rejected")
+    val timed = preview != null && (preview.start != null || preview.end != null)
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(lifecycle) {
-        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (isActive) {
-                val p = withContext(Dispatchers.IO) { Logic.info(ctx) }
-                preview = p
-                found = Dynamic.found
-                winner = Dynamic.winner
-                rejected = GatewayClient.tokenRejected
-                gate = Logic.gate(ctx)
-                now = System.currentTimeMillis()
-                delay(1000)
-            }
+    LaunchedEffect(timed, ui.running) {
+        while (isActive) {
+            now = System.currentTimeMillis()
+            delay(if (timed) 1_000L else 15_000L)
         }
     }
+    var historyTick by remember { mutableIntStateOf(0) }
+    val history = remember(snap, historyTick) { History.list(ctx) }
 
     LaunchedEffect(ui.sType, ui.sName, ui.sDetails, ui.sState, ui.sB1L, ui.sB1U, ui.sB2L, ui.sB2U) {
         ui.saveStatic()
@@ -126,7 +133,7 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
         }
         UpdateBanner()
 
-        HeroCard(ui, ui.running && gate == null && live != null, gate, live != null)
+        HeroCard(ui, ui.running && gate == null && live != null, gate, live != null, sentAt, now)
 
         SectionCard("Preview") {
             PresenceCard(
@@ -167,6 +174,10 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
         }
 
         OptionsCard(ui)
+        HistoryCard(history) {
+            History.clear(ctx)
+            historyTick++
+        }
         Spacer(Modifier.height(8.dp))
     }
 }
@@ -199,7 +210,7 @@ private fun UpdateBanner() {
 }
 
 @Composable
-private fun HeroCard(ui: UiState, liveNow: Boolean, gate: String?, hasLive: Boolean) {
+private fun HeroCard(ui: UiState, liveNow: Boolean, gate: String?, hasLive: Boolean, sentAt: Long, now: Long) {
     val cs = MaterialTheme.colorScheme
     val fade = MaterialTheme.motionScheme.defaultEffectsSpec<Color>()
     val heroBg by animateColorAsState(if (liveNow) cs.primaryContainer else cs.surfaceContainer, fade, label = "heroBg")
@@ -224,6 +235,14 @@ private fun HeroCard(ui: UiState, liveNow: Boolean, gate: String?, hasLive: Bool
                         style = MaterialTheme.typography.bodyMedium,
                         color = heroSub
                     )
+                    if (ui.running && gate == null) {
+                        Text(
+                            Live.sentLabel(sentAt, now),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = heroSub,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
                 }
                 Switch(
                     checked = ui.running,
@@ -236,10 +255,7 @@ private fun HeroCard(ui: UiState, liveNow: Boolean, gate: String?, hasLive: Bool
                 )
             }
             AnimatedVisibility(ui.running) {
-                ExpTonalButton(
-                    onClick = { ui.setPaused(!ui.paused) },
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
-                ) { Text(if (ui.paused) "Resume" else "Pause") }
+                PauseControl(ui)
             }
         }
     }
@@ -261,6 +277,88 @@ private fun OptionsCard(ui: UiState) {
             "Nothing is shown while you are Idle, Do Not Disturb or Invisible",
             ui.onlyOnline
         ) { ui.setOnlyOnline(it) }
+        Text(
+            "Share on",
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(top = 12.dp)
+        )
+        Spacer(Modifier.height(6.dp))
+        val rules = listOf(Net.ANY, Net.WIFI, Net.MOBILE)
+        Segmented(
+            listOf("Any", "Wi-Fi", "Mobile data"),
+            rules.indexOf(ui.netRule).coerceAtLeast(0),
+            { ui.setNetRule(rules[it]) }
+        )
+    }
+}
+
+@Composable
+private fun PauseControl(ui: UiState) {
+    var menu by remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+        if (ui.paused) {
+            ExpTonalButton(onClick = { ui.setPaused(false) }, modifier = Modifier.fillMaxWidth()) { Text("Resume") }
+        } else {
+            ExpTonalButton(onClick = { menu = true }, modifier = Modifier.fillMaxWidth()) { Text("Pause") }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                listOf(
+                    "For 30 minutes" to 30 * 60_000L,
+                    "For 1 hour" to 60 * 60_000L,
+                    "Until I resume" to 0L
+                ).forEach { (label, ms) ->
+                    DropdownMenuItem(
+                        text = { Text(label) },
+                        onClick = {
+                            menu = false
+                            ui.pauseFor(ms)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HistoryCard(entries: List<History.Entry>, onClear: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val fmt = remember { SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()) }
+    SectionCard("History", Modifier.spatialSize()) {
+        if (entries.isEmpty()) {
+            Text(
+                "Nothing shared yet. What you share shows up here.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = cs.onSurfaceVariant
+            )
+        }
+        entries.take(20).forEach { e ->
+            Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                Text(
+                    "${Presence.verb(e.type)} ${e.name}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                val sub = listOf(e.details, e.state).filter { it.isNotBlank() }.joinToString(" \u00B7 ")
+                if (sub.isNotEmpty()) {
+                    Text(
+                        sub,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = cs.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Text(
+                    fmt.format(Date(e.at)),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = cs.outline
+                )
+            }
+        }
+        if (entries.isNotEmpty()) {
+            ExpTextButton(onClick = onClear, modifier = Modifier.padding(top = 4.dp)) { Text("Clear history") }
+        }
     }
 }
 

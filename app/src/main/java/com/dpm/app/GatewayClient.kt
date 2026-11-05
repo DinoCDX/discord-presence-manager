@@ -8,6 +8,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import android.util.Log
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
@@ -19,7 +21,6 @@ object GatewayClient {
     private const val HEADLESS_URL = "https://discord.com/api/v10/users/@me/headless-sessions"
     private const val HEADLESS_DELETE_URL = "https://discord.com/api/v10/users/@me/headless-sessions/delete"
     private const val KEEP_ALIVE_MS = 14 * 60 * 1000L
-    private const val DEBOUNCE_MS = 1_500L
 
     private const val PLATFORM = "android"
 
@@ -56,6 +57,9 @@ object GatewayClient {
     private var pushJob: Job? = null
     private var retry: Job? = null
 
+    private val pushLock = Mutex()
+
+    @Volatile
     private var activities = JSONArray()
     private var lastSentActivitiesJson: String? = null
     private var lastPushTimeMs = 0L
@@ -124,16 +128,13 @@ object GatewayClient {
         }
 
         if (wanted && token != null) {
-            pushJob?.cancel()
-            pushJob = scope.launch {
-                delay(DEBOUNCE_MS)
-                pushPresence(force = false)
-            }
+            pushJob = scope.launch { pushPresence(force = false) }
         }
     }
 
     private fun setState(s: String) {
         state = s
+        Live.setConnection(s)
         onState?.invoke(s)
     }
 
@@ -203,6 +204,10 @@ object GatewayClient {
     }
 
     private suspend fun pushPresence(force: Boolean) {
+        pushLock.withLock { pushLocked(force) }
+    }
+
+    private suspend fun pushLocked(force: Boolean) {
         val bearer = token ?: return
         val currentJson = activities.toString()
 
@@ -244,7 +249,7 @@ object GatewayClient {
             sessionToken?.let { put("token", it) }
         }
 
-        Logs.add("POST headless-sessions session=${sessionToken != null} activities=$normalizedActivities")
+        Logs.add("POST headless-sessions session=${sessionToken != null} count=${normalizedActivities.length()}")
 
         val req = Request.Builder()
             .url(HEADLESS_URL)
@@ -282,16 +287,20 @@ object GatewayClient {
         when (code) {
             400 -> if (sessionToken != null) {
                 setSession(null)
-                pushPresence(force = true)
+                pushLocked(force = true)
             } else {
                 scheduleRetry(code, 0L, retryPushOnly = true, message = errText)
             }
 
             in 200..299 -> {
+                if (currentJson != lastSentActivitiesJson) {
+                    storage?.let { History.record(it, JSONArray(currentJson)) }
+                }
                 ready = true
                 attempts = 0
                 lastSentActivitiesJson = currentJson
                 lastPushTimeMs = System.currentTimeMillis()
+                Live.markSent(lastPushTimeMs)
                 setState("Connected as $accountName")
             }
             401 -> {

@@ -122,7 +122,7 @@ class MainActivity : ComponentActivity() {
                         )
                         if (tab == 0) {
                             val up = conn.startsWith("Connected")
-                            StatusPill(up, if (up) "Connected" else conn, Modifier.widthIn(max = 200.dp))
+                            StatusPill(up, Live.plain(conn), Modifier.widthIn(max = 200.dp))
                         }
                     }
                     if (tab == 1) {

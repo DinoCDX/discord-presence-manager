@@ -93,6 +93,8 @@ class UiState(private val c: Context) {
         private set
 
     var fallbackStatic by mutableStateOf(false)
+
+    @set:JvmName("assignNetRule") var netRule by mutableStateOf(Net.ANY)
         private set
 
     var permTick by mutableIntStateOf(0)
@@ -148,6 +150,7 @@ class UiState(private val c: Context) {
         btnRepo = flag("btn_repo", true)
         devMode = flag("dev_mode", false)
         fallbackStatic = flag("static_fallback", false)
+        netRule = Net.rule(c)
     }
 
     fun setRunning(on: Boolean) {
@@ -165,6 +168,18 @@ class UiState(private val c: Context) {
     fun setPaused(p: Boolean) {
         paused = p
         Presence.setPaused(c, p)
+        PresenceService.kick()
+    }
+
+    fun pauseFor(ms: Long) {
+        paused = true
+        Presence.pauseFor(c, ms)
+        PresenceService.kick()
+    }
+
+    fun setNetRule(r: String) {
+        netRule = r
+        Net.setRule(c, r)
         PresenceService.kick()
     }
 

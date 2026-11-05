@@ -1,6 +1,10 @@
 package com.dpm.app
 
+import android.content.Context
 import android.content.pm.ApplicationInfo
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.concurrent.ConcurrentHashMap
 
 class AppDef(val pkg: String, val type: Int, val details: String? = null, val auto: Boolean = true, val icon: String? = null)
 
@@ -72,4 +76,57 @@ object Apps {
         byPkg[pkg]?.let { return it.auto }
         return category == ApplicationInfo.CATEGORY_VIDEO || category == ApplicationInfo.CATEGORY_SOCIAL
     }
+}
+
+object IconLookup {
+    private const val BASE = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/"
+    private val found = ConcurrentHashMap<String, String>()
+
+    fun url(c: Context, pkg: String): String? {
+        Apps.def(pkg)?.icon?.let { return it }
+        found[pkg]?.let { return it.ifEmpty { null } }
+        val label = try {
+            val pm = c.packageManager
+            pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+        } catch (e: Exception) {
+            ""
+        }
+        var offline = false
+        for (slug in slugs(label)) {
+            val u = BASE + slug + ".png"
+            when (probe(u)) {
+                true -> {
+                    found[pkg] = u
+                    return u
+                }
+                null -> offline = true
+                false -> Unit
+            }
+        }
+        if (!offline) found[pkg] = ""
+        return null
+    }
+
+    private fun slugs(label: String): List<String> {
+        val words = label.lowercase()
+            .replace("&", " and ")
+            .replace(Regex("[^a-z0-9]+"), "-")
+            .trim('-')
+        return listOf(words, words.replace("-", "")).filter { it.isNotEmpty() }.distinct()
+    }
+
+    private fun probe(url: String): Boolean? =
+        try {
+            val conn = URL(url).openConnection() as HttpURLConnection
+            try {
+                conn.requestMethod = "HEAD"
+                conn.connectTimeout = 4000
+                conn.readTimeout = 4000
+                conn.responseCode in 200..299
+            } finally {
+                conn.disconnect()
+            }
+        } catch (e: Exception) {
+            null
+        }
 }

@@ -18,6 +18,7 @@ import okhttp3.Request
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
+import java.util.concurrent.TimeUnit
 
 sealed class UpdateState {
     object Idle : UpdateState()
@@ -42,7 +43,10 @@ object Updater {
     private const val CHECK_EVERY_MS = 12 * 3_600_000L
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .build()
 
     var state: UpdateState by mutableStateOf(UpdateState.Idle)
         private set

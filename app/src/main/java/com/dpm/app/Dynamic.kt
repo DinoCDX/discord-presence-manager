@@ -32,12 +32,13 @@ class Info(
     val smallFile: String? = null,
     val largeText: String? = null,
     val smallText: String? = null,
-    val paused: Boolean = false
+    val paused: Boolean = false,
+    val artist: String? = null
 ) {
     val key: String get() = "$name|$details|$state"
 
     fun copyWithButtons(buttons: List<Pair<String, String>>) = Info(
-        type, name, details, state, album, start, end, pkg, artUri, bitmap, source, link, buttons, largeFile, smallFile, largeText, smallText, paused
+        type, name, details, state, album, start, end, pkg, artUri, bitmap, source, link, buttons, largeFile, smallFile, largeText, smallText, paused, artist
     )
 }
 
@@ -206,15 +207,29 @@ object Dynamic {
     private fun text(md: MediaMetadata, vararg keys: String): String? =
         keys.firstNotNullOfOrNull { k -> md.getString(k)?.takeIf { it.isNotBlank() } }
 
+    private val lastPlaying = HashMap<Boolean, String>()
+
+    private fun clock(ms: Long): String {
+        val s = (ms / 1000).coerceAtLeast(0L)
+        return "%d:%02d".format(s / 60, s % 60)
+    }
+
     private fun media(c: Context, fg: String?, video: Boolean): Info? {
         return try {
             val ignored = Store.pkgs(c, "ignore_apps")
             val msm = c.getSystemService(MediaSessionManager::class.java)
-            val playing = msm.getActiveSessions(ComponentName(c, MediaListener::class.java)).filter {
-                it.playbackState?.state == PlaybackState.STATE_PLAYING && it.packageName !in ignored &&
-                    Apps.isWatching(it.packageName, category(c, it.packageName)) == video
+            val live = msm.getActiveSessions(ComponentName(c, MediaListener::class.java)).filter {
+                it.packageName !in ignored && Apps.isWatching(it.packageName, category(c, it.packageName)) == video
             }
-            val ctl = playing.firstOrNull { it.packageName == fg } ?: playing.firstOrNull() ?: return null
+            val playing = live.filter { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+            val recent = lastPlaying[video]
+            val paused = live.filter {
+                it.playbackState?.state == PlaybackState.STATE_PAUSED &&
+                    (it.packageName == fg || it.packageName == recent)
+            }
+            val ctl = playing.firstOrNull { it.packageName == fg } ?: playing.firstOrNull()
+                ?: paused.firstOrNull { it.packageName == fg } ?: paused.firstOrNull()
+                ?: return null
             val md = ctl.metadata ?: return null
             val title = text(md, MediaMetadata.METADATA_KEY_TITLE, MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
                 ?: return null
@@ -228,26 +243,46 @@ object Dynamic {
             val album = md.getString(MediaMetadata.METADATA_KEY_ALBUM)
             val dur = md.getLong(MediaMetadata.METADATA_KEY_DURATION)
             val ps = ctl.playbackState ?: return null
+            val pkg = ctl.packageName
+            val isPaused = ps.state != PlaybackState.STATE_PLAYING
             val now = System.currentTimeMillis()
-            val key = "${ctl.packageName}|$title|$artist|$dur"
-            var start: Long
-            val frozen = key == mKey && ps.position == lastRawPos
-            lastRawPos = ps.position
-            if (frozen) {
-                start = mStart
-            } else if (ps.position >= 0) {
-                var pos = ps.position
-                if (ps.lastPositionUpdateTime > 0) {
-                    pos += ((SystemClock.elapsedRealtime() - ps.lastPositionUpdateTime) * ps.playbackSpeed).toLong()
-                }
-                pos = if (dur > 0) pos.coerceIn(0L, dur) else pos.coerceAtLeast(0L)
-                start = now - pos
-                if (key == mKey && abs(start - mStart) < 3000) start = mStart
+            if (!isPaused) lastPlaying[video] = pkg
+            val key = "$pkg|$title|$artist|$dur"
+            val rawPos = if (ps.position >= 0) ps.position else 0L
+
+            val start: Long? = if (isPaused) {
+                mKey = ""
+                lastRawPos = Long.MIN_VALUE
+                null
             } else {
-                start = if (key == mKey) mStart else now
+                val frozen = key == mKey && ps.position == lastRawPos
+                lastRawPos = ps.position
+                val s = when {
+                    frozen -> mStart
+                    ps.position >= 0 -> {
+                        var p = ps.position
+                        if (ps.lastPositionUpdateTime > 0) {
+                            p += ((SystemClock.elapsedRealtime() - ps.lastPositionUpdateTime) * ps.playbackSpeed).toLong()
+                        }
+                        p = if (dur > 0) p.coerceIn(0L, dur) else p.coerceAtLeast(0L)
+                        val guess = now - p
+                        if (key == mKey && abs(guess - mStart) < 3000) mStart else guess
+                    }
+                    else -> if (key == mKey) mStart else now
+                }
+                mKey = key
+                mStart = s
+                s
             }
-            mKey = key
-            mStart = start
+
+            val shownState = if (isPaused) {
+                val frozenText = clock(if (dur > 0) rawPos.coerceIn(0L, dur) else rawPos) +
+                    (if (dur > 0) " / " + clock(dur) else "") + " \u00B7 paused"
+                listOfNotNull(artist, frozenText).joinToString(" \u00B7 ")
+            } else {
+                artist
+            }
+
             val uri = listOf(
                 MediaMetadata.METADATA_KEY_ALBUM_ART_URI,
                 MediaMetadata.METADATA_KEY_ART_URI,
@@ -256,26 +291,25 @@ object Dynamic {
             val bmp = md.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
                 ?: md.getBitmap(MediaMetadata.METADATA_KEY_ART)
                 ?: md.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
-            val pkg = ctl.packageName
-            val paused = ps.state != PlaybackState.STATE_PLAYING
             val media = Info(
                 type = if (Apps.isWatching(pkg, category(c, pkg))) 3 else 2,
                 name = appLabel(c, pkg),
                 details = title,
-                state = artist,
+                state = shownState,
                 album = album,
-                start = if (paused) null else start,
-                end = if (paused || dur <= 0) null else start + dur,
+                start = start,
+                end = if (start == null || dur <= 0) null else start + dur,
                 pkg = pkg,
                 artUri = uri,
                 bitmap = bmp,
                 source = if (video) Sources.VIDEO else Sources.MUSIC,
                 link = md.getString(MediaMetadata.METADATA_KEY_MEDIA_URI),
-                paused = paused
+                paused = isPaused,
+                artist = artist
             )
-            if (mKey != loggedKey) {
-                loggedKey = mKey
-                Logs.add("media pkg=$pkg artUri=${uri ?: "none"} bitmap=${bmp != null} pos=${ps.position}")
+            if (key != loggedKey) {
+                loggedKey = key
+                Logs.add("media pkg=$pkg paused=$isPaused artUri=${uri ?: "none"} bitmap=${bmp != null} pos=${ps.position}")
             }
             media
         } catch (e: SecurityException) {

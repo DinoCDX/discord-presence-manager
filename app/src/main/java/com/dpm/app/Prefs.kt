@@ -11,7 +11,10 @@ import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 object Bus {
     val flow = MutableStateFlow(0L)
@@ -32,9 +35,33 @@ object Presence {
 
     fun setRunning(c: Context, on: Boolean) = Store.put(c, "running", if (on) "1" else "0")
 
-    fun paused(c: Context): Boolean = Store.get(c, "paused", "0") == "1"
+    fun paused(c: Context): Boolean {
+        if (Store.get(c, "paused", "0") != "1") return false
+        val until = pausedUntil(c)
+        if (until > 0L && System.currentTimeMillis() >= until) {
+            setPaused(c, false)
+            return false
+        }
+        return true
+    }
 
-    fun setPaused(c: Context, p: Boolean) = Store.put(c, "paused", if (p) "1" else "0")
+    fun pausedUntil(c: Context): Long = Store.get(c, "paused_until", "0").toLongOrNull() ?: 0L
+
+    fun setPaused(c: Context, p: Boolean) {
+        Store.put(c, "paused", if (p) "1" else "0")
+        Store.put(c, "paused_until", "0")
+    }
+
+    fun pauseFor(c: Context, ms: Long) {
+        Store.put(c, "paused", "1")
+        Store.put(c, "paused_until", if (ms > 0L) (System.currentTimeMillis() + ms).toString() else "0")
+    }
+
+    fun pauseLabel(c: Context): String {
+        val until = pausedUntil(c)
+        if (until <= 0L) return "Paused"
+        return "Paused until " + SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(until))
+    }
 
     fun verb(t: Int): String = when (t) {
         2 -> "Listening to"
@@ -204,8 +231,9 @@ object UserStatus {
 object Logic {
     fun gate(c: Context): String? {
         if (!Presence.running(c)) return "Presence is off"
-        if (Presence.paused(c)) return "Paused"
+        if (Presence.paused(c)) return Presence.pauseLabel(c)
         if (Schedule.on(c) && !Schedule.active(c)) return "Outside your scheduled times"
+        if (!Net.allowed(c)) return Net.waitingText(c)
         if (Store.get(c, "only_online", "0") == "1") {
             val s = UserStatus.status
             if (s != null && s != "online") return "Your Discord status is not Online"
