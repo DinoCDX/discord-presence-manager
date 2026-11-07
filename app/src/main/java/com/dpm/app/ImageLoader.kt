@@ -15,7 +15,7 @@ import okhttp3.Request
 object RemoteImages {
     private const val MAX_PX = 512
 
-    private val cache = object : LruCache<String, Bitmap>((Runtime.getRuntime().maxMemory() / 16).toInt()) {
+    private val cache = object : LruCache<String, Bitmap>(8 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
     }
 

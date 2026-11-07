@@ -37,6 +37,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -53,13 +55,13 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -76,8 +78,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-
-private class AppEntry(val pkg: String, val label: String, val category: Int)
 
 private const val LIMIT = 128
 
@@ -100,6 +100,13 @@ private fun sameCustom(x: Custom?, y: Custom?): Boolean =
         x.type == y.type && x.name == y.name && x.details == y.details && x.state == y.state
     }
 
+private class AppSplit(
+    val shown: List<AppEntry>,
+    val hidden: List<AppEntry>,
+    val shownCount: Int,
+    val customCount: Int
+)
+
 private fun groupShape(index: Int, last: Int): RoundedCornerShape {
     val edge = 24.dp
     val inner = 6.dp
@@ -117,16 +124,11 @@ fun AppsScreen(ui: UiState, listState: LazyListState = rememberLazyListState()) 
     val ctx = LocalContext.current
     val cs = MaterialTheme.colorScheme
 
-    val apps by produceState(listOf<AppEntry>()) {
-        value = withContext(Dispatchers.IO) {
-            val pm = ctx.packageManager
-            val q = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-            pm.queryIntentActivities(q, 0)
-                .map { AppEntry(it.activityInfo.packageName, it.loadLabel(pm).toString(), it.activityInfo.applicationInfo.category) }
-                .filter { it.pkg != ctx.packageName }
-                .distinctBy { it.pkg }
-                .sortedBy { it.label.lowercase() }
-        }
+    val apps by AppCatalog.flow.collectAsState()
+    val iconPx = with(LocalDensity.current) { 44.dp.roundToPx() }
+    LaunchedEffect(Unit) { AppCatalog.ensure(ctx) }
+    LaunchedEffect(apps) {
+        withContext(Dispatchers.IO) { apps.take(40).forEach { AppIcons.get(ctx, it.pkg, iconPx) } }
     }
 
     val popular = remember(apps) { apps.filter { Apps.autoShow(it.pkg, it.category) }.map { it.pkg } }
@@ -163,15 +165,25 @@ fun AppsScreen(ui: UiState, listState: LazyListState = rememberLazyListState()) 
     val usageOk = remember(ui.permTick) { Perms.usage(ctx) }
     val listenerOk = remember(ui.permTick) { Perms.listener(ctx) }
 
-    val shownCount = apps.count { shownNow(it, ui) }
+    val split = remember(apps, query, filter, ui.showApps, ui.ignoreApps, ui.customs, ui.autoApps, ui.allApps) {
+        val matched = apps.filter {
+            (query.isBlank() || it.label.contains(query, true) || it.pkg.contains(query, true)) &&
+                (filter != 3 || it.pkg in ui.customs)
+        }
+        AppSplit(
+            shown = if (filter == 2) emptyList() else matched.filter { shownNow(it, ui) },
+            hidden = if (filter == 1) emptyList() else matched.filter { !shownNow(it, ui) },
+            shownCount = apps.count { shownNow(it, ui) },
+            customCount = apps.count { it.pkg in ui.customs }
+        )
+    }
+    val shownCount = split.shownCount
     val hiddenCount = apps.size - shownCount
-    val customCount = apps.count { it.pkg in ui.customs }
-
-    fun matchesQuery(a: AppEntry) = query.isBlank() || a.label.contains(query, true) || a.pkg.contains(query, true)
-    fun matchesFilter(a: AppEntry) = filter != 3 || a.pkg in ui.customs
-
-    val shownGroup = apps.filter { matchesQuery(it) && matchesFilter(it) && shownNow(it, ui) }
-    val hiddenGroup = apps.filter { matchesQuery(it) && matchesFilter(it) && !shownNow(it, ui) }
+    val customCount = split.customCount
+    val shownGroup = split.shown
+    val hiddenGroup = split.hidden
+    var hiddenOpen by remember { mutableStateOf(false) }
+    val showHidden = hiddenOpen || query.isNotBlank() || filter == 2
 
     Column(Modifier.fillMaxSize()) {
     LazyColumn(
@@ -306,8 +318,10 @@ fun AppsScreen(ui: UiState, listState: LazyListState = rememberLazyListState()) 
             appRows(shownGroup, ui, cs) { open = it }
         }
         if (hiddenGroup.isNotEmpty()) {
-            item { GroupHeader("Hidden", hiddenGroup.size) }
-            appRows(hiddenGroup, ui, cs) { open = it }
+            item(key = "hidden-header") {
+                CollapsibleHeader("Hidden", hiddenGroup.size, showHidden) { hiddenOpen = !hiddenOpen }
+            }
+            if (showHidden) appRows(hiddenGroup, ui, cs) { open = it }
         }
     }
     AnimatedVisibility(visible = searching) {
@@ -353,13 +367,35 @@ private fun GroupHeader(title: String, count: Int) {
     }
 }
 
+@Composable
+private fun CollapsibleHeader(title: String, count: Int, open: Boolean, onToggle: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(start = 4.dp, end = 4.dp, top = 12.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, style = MaterialTheme.typography.titleMediumEmphasized, color = cs.primary)
+        Spacer(Modifier.width(4.dp))
+        Icon(
+            if (open) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+            null,
+            tint = cs.primary
+        )
+        Spacer(Modifier.weight(1f))
+        Text("$count", style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
+    }
+}
+
 private fun LazyListScope.appRows(
     list: List<AppEntry>,
     ui: UiState,
     cs: androidx.compose.material3.ColorScheme,
     onOpen: (AppEntry) -> Unit
 ) {
-    itemsIndexed(list, key = { _, a -> a.pkg }) { index, a ->
+    itemsIndexed(list, key = { _, a -> a.pkg }, contentType = { _, _ -> "app" }) { index, a ->
         val mode = ui.appMode(a.pkg)
         val custom = a.pkg in ui.customs
         val on = shownNow(a, ui)

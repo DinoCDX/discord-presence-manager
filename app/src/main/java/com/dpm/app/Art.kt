@@ -2,11 +2,11 @@ package com.dpm.app
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.util.LruCache
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
+import java.util.concurrent.Executors
 import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 
@@ -58,46 +58,33 @@ object Art {
 
     private fun fetchCover(title: String, artist: String): String? {
         val term = URLEncoder.encode("$artist $title", "UTF-8")
-        val conn = URL("https://itunes.apple.com/search?term=$term&entity=song&limit=10")
-            .openConnection() as HttpURLConnection
-        return try {
-            conn.connectTimeout = 5000
-            conn.readTimeout = 5000
-            if (conn.responseCode !in 200..299) throw IOException("itunes ${conn.responseCode}")
-            val body = conn.inputStream.bufferedReader().use { it.readText() }
-            val results = JSONObject(body).optJSONArray("results") ?: return null
-            for (k in 0 until results.length()) {
-                val r = results.getJSONObject(k)
-                if (!sameArtist(r.optString("artistName"), artist)) continue
-                val art = r.optString("artworkUrl100").takeIf { it.startsWith("https://") } ?: continue
-                return art.replace("100x100bb", "600x600bb")
-            }
-            null
-        } finally {
-            conn.disconnect()
+        val (code, body) = Http.get("https://itunes.apple.com/search?term=$term&entity=song&limit=10")
+            ?: throw IOException("itunes offline")
+        if (code !in 200..299) throw IOException("itunes $code")
+        val results = JSONObject(body).optJSONArray("results") ?: return null
+        for (k in 0 until results.length()) {
+            val r = results.getJSONObject(k)
+            if (!sameArtist(r.optString("artistName"), artist)) continue
+            val art = r.optString("artworkUrl100").takeIf { it.startsWith("https://") } ?: continue
+            return art.replace("100x100bb", "600x600bb")
         }
+        return null
     }
 
     private fun fetchDeezerCover(title: String, artist: String): String? {
         val q = URLEncoder.encode("artist:\"$artist\" track:\"$title\"", "UTF-8")
-        val conn = URL("https://api.deezer.com/search?q=$q&limit=10").openConnection() as HttpURLConnection
-        return try {
-            conn.connectTimeout = 5000
-            conn.readTimeout = 5000
-            if (conn.responseCode !in 200..299) throw IOException("deezer ${conn.responseCode}")
-            val body = conn.inputStream.bufferedReader().use { it.readText() }
-            val data = JSONObject(body).optJSONArray("data") ?: return null
-            for (k in 0 until data.length()) {
-                val r = data.getJSONObject(k)
-                if (!sameArtist(r.optJSONObject("artist")?.optString("name").orEmpty(), artist)) continue
-                if (!sameTitle(r.optString("title"), title)) continue
-                val cover = r.optJSONObject("album")?.optString("cover_xl").orEmpty()
-                if (cover.startsWith("https://")) return cover
-            }
-            null
-        } finally {
-            conn.disconnect()
+        val (code, body) = Http.get("https://api.deezer.com/search?q=$q&limit=10")
+            ?: throw IOException("deezer offline")
+        if (code !in 200..299) throw IOException("deezer $code")
+        val data = JSONObject(body).optJSONArray("data") ?: return null
+        for (k in 0 until data.length()) {
+            val r = data.getJSONObject(k)
+            if (!sameArtist(r.optJSONObject("artist")?.optString("name").orEmpty(), artist)) continue
+            if (!sameTitle(r.optString("title"), title)) continue
+            val cover = r.optJSONObject("album")?.optString("cover_xl").orEmpty()
+            if (cover.startsWith("https://")) return cover
         }
+        return null
     }
 
     private fun norm(s: String): String = s.lowercase().replace(Regex("[^\\p{L}\\p{Nd}]"), "")
@@ -199,17 +186,124 @@ object Art {
         return mp
     }
 
-    @Synchronized
+    private val pending = ConcurrentHashMap.newKeySet<String>()
+    private val worker = Executors.newFixedThreadPool(2)
+
+    private val bitmaps = object : LruCache<String, Bitmap>(3 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
+    }
+
     fun resolve(c: Context, i: Info): Resolved? {
         val app = appId(c)
         val pkg = i.pkg ?: return null
         if (!validId(app)) return null
         val k = "$app|$pkg|${i.key}|${i.artUri}|${sig(i.bitmap)}"
         val now = System.currentTimeMillis()
-        cache[k]?.let { if (it.r != null || now - it.at < RETRY_MS) return it.r }
-        val r = mediaImages(c, app, pkg, i)
-        cache[k] = Entry(r, now)
-        return r
+        val hit = cache[k]
+        if (hit != null && (hit.r != null || now - hit.at < RETRY_MS)) return hit.r
+        if (pending.add(k)) {
+            val ctx = c.applicationContext
+            worker.execute {
+                try {
+                    val r = mediaImages(ctx, app, pkg, i)
+                    cache[k] = Entry(r, System.currentTimeMillis())
+                    PresenceService.kick()
+                } catch (e: Exception) {
+                    cache[k] = Entry(null, System.currentTimeMillis())
+                } finally {
+                    pending.remove(k)
+                }
+            }
+        }
+        return hit?.r
+    }
+
+    fun coverUrl(i: Info): String? =
+        i.artUri?.takeIf { it.startsWith("https://") }
+            ?: coverLookup(i.details.orEmpty(), i.artist.orEmpty())
+
+    private val bitmapFailedAt = ConcurrentHashMap<String, Long>()
+    private val extFailedAt = ConcurrentHashMap<String, Long>()
+
+    fun coverUrlCached(i: Info): String? {
+        i.artUri?.takeIf { it.startsWith("https://") }?.let { return it }
+        val t = i.details.orEmpty().trim()
+        val a = i.artist.orEmpty().trim()
+        if (t.isEmpty() || a.isEmpty()) return null
+        val key = "$t|$a"
+        lookups[key]?.let { return it.ifEmpty { null } }
+        if (pending.add("lookup|$key")) {
+            worker.execute {
+                try {
+                    coverLookup(t, a)
+                    if (lookups.containsKey(key)) PresenceService.kick()
+                } finally {
+                    pending.remove("lookup|$key")
+                }
+            }
+        }
+        return null
+    }
+
+    fun coverBitmapCached(i: Info): Bitmap? {
+        val url = coverUrlCached(i) ?: return null
+        bitmaps.get(url)?.let { return it }
+        val failed = bitmapFailedAt[url]
+        if ((failed == null || System.currentTimeMillis() - failed > RETRY_MS) && pending.add("bmp|$url")) {
+            worker.execute {
+                try {
+                    val bmp = Http.bitmap(url)
+                    if (bmp != null) {
+                        bitmaps.put(url, bmp)
+                        bitmapFailedAt.remove(url)
+                        PresenceService.kick()
+                    } else {
+                        bitmapFailedAt[url] = System.currentTimeMillis()
+                    }
+                } finally {
+                    pending.remove("bmp|$url")
+                }
+            }
+        }
+        return null
+    }
+
+    fun coverReady(i: Info?): Boolean = i != null && coverBitmapCached(i) != null
+
+    fun externalCached(c: Context, app: String, input: String): String? {
+        val url = normalizeImageUrl(input)
+        val key = "$app|$url"
+        synchronized(extLock) {
+            if (!extLoaded) {
+                loadExternal(c)
+                extLoaded = true
+            }
+            externalPaths[key]?.let { return it.substringAfter('|') }
+        }
+        val failed = extFailedAt[key]
+        if ((failed == null || System.currentTimeMillis() - failed > RETRY_MS) && pending.add("ext|$key")) {
+            val ctx = c.applicationContext
+            worker.execute {
+                try {
+                    if (external(ctx, app, input) != null) {
+                        PresenceService.kick()
+                    } else {
+                        extFailedAt[key] = System.currentTimeMillis()
+                    }
+                } finally {
+                    pending.remove("ext|$key")
+                }
+            }
+        }
+        return null
+    }
+
+    fun coverBitmap(i: Info): Bitmap? {
+        val url = coverUrl(i) ?: return null
+        bitmaps.get(url)?.let { return it }
+        val bmp = Http.bitmap(url) ?: return null
+        bitmaps.put(url, bmp)
+        return bmp
     }
 
     private fun mediaImages(c: Context, app: String, pkg: String, i: Info): Resolved? {
@@ -221,7 +315,6 @@ object Art {
         return Resolved(big, null)
     }
 
-    @Synchronized
     fun resolveStatic(c: Context, i: Info): Resolved? {
         val app = appId(c)
         if (!validId(app)) return null
@@ -229,12 +322,25 @@ object Art {
         val smallName = i.smallFile.orEmpty()
         val k = "$app|static|$largeName|$smallName"
         val now = System.currentTimeMillis()
-        cache[k]?.let { if (it.r != null || now - it.at < RETRY_MS) return it.r }
-        val big = fromLink(c, app, largeName) ?: external(c, app, DEFAULT_IMAGE_URL)
-        val small = fromLink(c, app, smallName)
-        val r = big?.let { Resolved(it, small) }
-        cache[k] = Entry(r, now)
-        return r
+        val hit = cache[k]
+        if (hit != null && (hit.r != null || now - hit.at < RETRY_MS)) return hit.r
+        if (pending.add(k)) {
+            val ctx = c.applicationContext
+            worker.execute {
+                try {
+                    val big = fromLink(ctx, app, largeName) ?: external(ctx, app, DEFAULT_IMAGE_URL)
+                    val small = fromLink(ctx, app, smallName)
+                    val r = big?.let { Resolved(it, small) }
+                    cache[k] = Entry(r, System.currentTimeMillis())
+                    PresenceService.kick()
+                } catch (e: Exception) {
+                    cache[k] = Entry(null, System.currentTimeMillis())
+                } finally {
+                    pending.remove(k)
+                }
+            }
+        }
+        return hit?.r
     }
 
     private fun fromLink(c: Context, app: String, name: String): String? =

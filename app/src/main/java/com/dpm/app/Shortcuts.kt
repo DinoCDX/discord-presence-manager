@@ -113,15 +113,41 @@ class PresenceWidget : AppWidgetProvider() {
 
     companion object {
         private const val LARGE_MIN_HEIGHT_DP = 140
+        private val lastSig = HashMap<Int, String>()
 
         fun update(c: Context, m: AppWidgetManager, ids: IntArray) {
             ids.forEach { id ->
                 val height = m.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
                 val large = height >= LARGE_MIN_HEIGHT_DP
+                val sig = signature(c, large)
+                if (lastSig[id] == sig) return@forEach
+                lastSig[id] = sig
                 val v = RemoteViews(c.packageName, if (large) R.layout.widget_presence_large else R.layout.widget_presence)
                 bind(c, v, large)
                 m.updateAppWidget(id, v)
             }
+        }
+
+        private fun signature(c: Context, large: Boolean): String {
+            val static = Presence.mode(c) == "static"
+            val live = Dynamic.found.values.firstNotNullOfOrNull { it }
+            val fallback = if (Store.get(c, "static_fallback", "0") == "1") Dynamic.staticInfo(c) else null
+            val info = if (static) Dynamic.staticInfo(c) else (live ?: fallback)
+            return listOf(
+                large,
+                Presence.running(c),
+                Presence.paused(c),
+                static,
+                Store.token(c) == null,
+                Logic.gate(c),
+                info?.type,
+                info?.name,
+                info?.details,
+                info?.state,
+                info?.pkg,
+                info?.artUri,
+                Art.coverReady(info)
+            ).joinToString("|")
         }
 
         private fun bind(c: Context, v: RemoteViews, large: Boolean) {
@@ -133,6 +159,7 @@ class PresenceWidget : AppWidgetProvider() {
             val live = Dynamic.found.values.firstNotNullOfOrNull { it }
             val fallback = if (Store.get(c, "static_fallback", "0") == "1") Dynamic.staticInfo(c) else null
             val info = if (static) Dynamic.staticInfo(c) else (live ?: fallback)
+            val gate = Logic.gate(c)
 
             v.setTextViewText(
                 R.id.w_title,
@@ -144,7 +171,7 @@ class PresenceWidget : AppWidgetProvider() {
                 }
             )
             v.setTextColor(R.id.w_dot, ContextCompat.getColor(c, if (dotLive) R.color.w_live else R.color.w_idle))
-            v.setTextViewText(R.id.w_sub, subtitle(loggedOut, on, info, static))
+            v.setTextViewText(R.id.w_sub, subtitle(loggedOut, on, info, static, gate))
             v.setTextViewText(R.id.w_mode, if (static) "Static" else "Dynamic")
             v.setTextViewText(R.id.w_button, if (on) "Turn off" else "Turn on")
             if (large) bindPreview(c, v, info, static)
@@ -164,9 +191,10 @@ class PresenceWidget : AppWidgetProvider() {
             )
         }
 
-        private fun subtitle(loggedOut: Boolean, on: Boolean, info: Info?, static: Boolean): String = when {
+        private fun subtitle(loggedOut: Boolean, on: Boolean, info: Info?, static: Boolean, gate: String?): String = when {
             loggedOut -> "Open DPM to log in"
             !on -> "Off"
+            gate != null -> gate
             info == null -> if (static) "No static name set" else "Nothing playing right now"
             else -> "${Presence.verb(info.type)} ${info.name}"
         }
@@ -189,10 +217,10 @@ class PresenceWidget : AppWidgetProvider() {
 
         private fun art(c: Context, info: Info?): Bitmap? {
             if (info == null) return null
-            val cover = info.bitmap?.takeIf { info.artUri?.startsWith("https://") == true }
+            val cover = Art.coverBitmapCached(info)
             val raw = cover
                 ?: info.pkg?.let { AppIcons.get(c, it, 192) }
-                ?: info.largeFile?.let { StaticFiles.file(c, it) }?.let { BitmapFactory.decodeFile(it.absolutePath) }
+                ?: info.largeFile?.let { StaticFiles.file(c, it) }?.let { decodeSampled(it.absolutePath, 256) }
                 ?: return null
             val side = 192
             val scaled = Bitmap.createScaledBitmap(raw, side, side, true)
@@ -205,4 +233,12 @@ class PresenceWidget : AppWidgetProvider() {
             return out
         }
     }
+}
+
+private fun decodeSampled(path: String, maxSide: Int): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(path, bounds)
+    var sample = 1
+    while (bounds.outWidth / (sample * 2) >= maxSide && bounds.outHeight / (sample * 2) >= maxSide) sample *= 2
+    return BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
 }

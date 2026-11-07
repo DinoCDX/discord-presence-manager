@@ -30,6 +30,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -49,16 +50,25 @@ class PresenceService : Service() {
         }
     }
 
+    private var benchJob: Job? = null
+
     private val watched = HashMap<MediaSession.Token, MediaController>()
 
     private val mediaCallback = object : MediaController.Callback() {
         override fun onPlaybackStateChanged(state: PlaybackState?) = kick()
-        override fun onMetadataChanged(metadata: MediaMetadata?) = kick()
-        override fun onSessionDestroyed() = kick()
+        override fun onMetadataChanged(metadata: MediaMetadata?) {
+            Dynamic.markMediaDirty()
+            kick()
+        }
+        override fun onSessionDestroyed() {
+            Dynamic.markMediaDirty()
+            kick()
+        }
     }
 
     private val sessionsListener = MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
         watchSessions(controllers?.toList() ?: emptyList())
+        Dynamic.markMediaDirty()
         kick()
     }
 
@@ -169,12 +179,23 @@ class PresenceService : Service() {
         if (job?.isActive != true) {
             job = scope.launch {
                 while (isActive) {
+                    val t0 = System.nanoTime()
                     try {
                         tick()
                     } catch (e: Exception) {
                     }
+                    Bench.tick((System.nanoTime() - t0) / 1_000_000.0)
                     val interactive = getSystemService(PowerManager::class.java)?.isInteractive != false
-                    withTimeoutOrNull(if (interactive) 5_000L else 15_000L) { kicks.receive() }
+                    val waitMs = (if (interactive) TickRate.onSec(this@PresenceService) else TickRate.offSec(this@PresenceService)) * 1000L
+                    withTimeoutOrNull(waitMs) { kicks.receive() }
+                }
+            }
+        }
+        if (benchJob?.isActive != true) {
+            benchJob = scope.launch {
+                while (isActive) {
+                    delay(2_000L)
+                    if (Bench.recording(this@PresenceService)) Bench.sample(this@PresenceService)
                 }
             }
         }
@@ -185,23 +206,32 @@ class PresenceService : Service() {
     private fun tick() {
         if (Store.get(this, "only_online", "0") == "1") UserStatus.refresh(this)
         val gate = Logic.gate(this)
-        val preview = Logic.info(this)
-        Live.publish(Live.Snapshot(preview, gate, Dynamic.found, Dynamic.winner))
+        val preview = if (gate == null || Live.uiVisible) Logic.info(this) else null
+        if (Live.uiVisible) Live.publish(Live.Snapshot(preview, gate, Dynamic.found, Dynamic.winner))
         val info = if (gate == null) preview else null
         val arr = JSONArray()
         if (info != null) arr.put(Dynamic.toJson(this, info))
         val s = arr.toString()
         if (s != last) {
+            Logs.add("update: ${changedFields(last, arr)}")
             last = s
             GatewayClient.setPresence(arr)
         }
-        val key = "$gate|${info?.type}|${info?.name}|${info?.details}|${info?.state}|${info?.pkg}|${info?.bitmap != null}"
+        val key = "$gate|${info?.type}|${info?.name}|${info?.details}|${info?.state}|${info?.pkg}|${info?.bitmap != null}|${Art.coverReady(info)}"
         if (key != notifKey) {
             notifKey = key
             Toggle.refresh(this)
             val n = buildNotification(info, gate, if (gate == null) info else null)
             getSystemService(NotificationManager::class.java).notify(1, n)
         }
+    }
+
+    private fun changedFields(old: String, new: JSONArray): String {
+        val a = try { JSONArray(old).optJSONObject(0) } catch (e: Exception) { null }
+        val b = new.optJSONObject(0)
+        if (a == null || b == null) return "activity added or removed"
+        val keys = (a.keys().asSequence() + b.keys().asSequence()).toSet()
+        return keys.filter { a.opt(it)?.toString() != b.opt(it)?.toString() }.joinToString(", ").ifEmpty { "none" }
     }
 
     private fun pending(action: String, code: Int): PendingIntent =
@@ -256,7 +286,7 @@ class PresenceService : Service() {
             )
             .addAction(0, "Stop", pending(ACTION_STOP, 2))
         val big = shown?.let { s ->
-            s.bitmap?.let { AppIcons.square(it, 256) } ?: s.pkg?.let { AppIcons.get(this, it, 256) }
+            Art.coverBitmapCached(s)?.let { AppIcons.square(it, 256) } ?: s.pkg?.let { AppIcons.get(this, it, 256) }
         }
         if (big != null) b.setLargeIcon(big as Bitmap)
         return b.build()

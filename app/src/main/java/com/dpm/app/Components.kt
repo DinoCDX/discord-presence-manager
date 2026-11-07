@@ -255,7 +255,15 @@ fun SavedTag(ui: UiState, now: Long) {
 }
 
 @Composable
-fun Banner(title: String, text: String, action: String, onDismiss: (() -> Unit)? = null, onClick: () -> Unit) {
+fun Banner(
+    title: String,
+    text: String,
+    action: String,
+    onDismiss: (() -> Unit)? = null,
+    secondary: String? = null,
+    onSecondary: (() -> Unit)? = null,
+    onClick: () -> Unit
+) {
     Card(
         Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
@@ -278,7 +286,12 @@ fun Banner(title: String, text: String, action: String, onDismiss: (() -> Unit)?
             Spacer(Modifier.height(4.dp))
             Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
             Spacer(Modifier.height(12.dp))
-            ExpButton(onClick = onClick) { Text(action) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ExpButton(onClick = onClick) { Text(action) }
+                if (secondary != null && onSecondary != null) {
+                    ExpTextButton(onClick = onSecondary) { Text(secondary) }
+                }
+            }
         }
     }
 }

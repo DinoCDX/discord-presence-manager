@@ -51,6 +51,12 @@ object Updater {
     var state: UpdateState by mutableStateOf(UpdateState.Idle)
         private set
 
+    var latestTag: String by mutableStateOf("")
+        private set
+
+    var latestNotes: String by mutableStateOf("")
+        private set
+
     fun installedVersion(c: Context): String =
         try {
             c.packageManager.getPackageInfo(c.packageName, 0).versionName.orEmpty()
@@ -101,6 +107,8 @@ object Updater {
                 if (!r.isSuccessful) return UpdateState.Failed("GitHub returned ${r.code}")
                 val o = JSONObject(r.body?.string().orEmpty())
                 val tag = o.optString("tag_name")
+                latestTag = tag
+                latestNotes = o.optString("body").trim()
                 if (tag.isEmpty() || !newer(tag, installedVersion(c))) return UpdateState.UpToDate
                 val list = o.optJSONArray("assets")
                 val apk = (0 until (list?.length() ?: 0))

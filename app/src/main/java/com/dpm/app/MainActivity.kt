@@ -53,6 +53,16 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 class MainActivity : ComponentActivity() {
     private lateinit var ui: UiState
 
+    override fun onStart() {
+        super.onStart()
+        Live.setVisible(true)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        Live.setVisible(false)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)

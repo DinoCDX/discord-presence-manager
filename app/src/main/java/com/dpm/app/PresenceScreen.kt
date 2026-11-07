@@ -65,6 +65,10 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.Calendar
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 
 @Composable
 fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = rememberScrollState()) {
@@ -85,15 +89,13 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
     val winner = shown.winner
     val rejected = conn.startsWith("Token rejected")
     val timed = preview != null && (preview.start != null || preview.end != null)
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    val nowState = remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(timed, ui.running) {
         while (isActive) {
-            now = System.currentTimeMillis()
+            nowState.longValue = System.currentTimeMillis()
             delay(if (timed) 1_000L else 15_000L)
         }
     }
-    var historyTick by remember { mutableIntStateOf(0) }
-    val history = remember(snap, historyTick) { History.list(ctx) }
 
     LaunchedEffect(ui.sType, ui.sName, ui.sDetails, ui.sState, ui.sB1L, ui.sB1U, ui.sB2L, ui.sB2U) {
         ui.saveStatic()
@@ -133,12 +135,12 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
         }
         UpdateBanner()
 
-        HeroCard(ui, ui.running && gate == null && live != null, gate, live != null, sentAt, now)
+        HeroCard(ui, ui.running && gate == null && live != null, gate, live != null, sentAt, nowState)
 
         SectionCard("Preview") {
-            PresenceCard(
+            TimedPreview(
                 info = live,
-                now = now,
+                nowState = nowState,
                 empty = if (ui.mode == "static") "Add a name below to see a preview" else "Nothing to show right now",
                 imagesOn = ui.images,
                 hasAppId = ui.appId.isNotBlank()
@@ -151,7 +153,7 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
             })
             Spacer(Modifier.height(12.dp))
             if (ui.mode == "static") {
-                StaticEditor(ui, now)
+                TimedStatic(ui, nowState)
             } else {
                 Text(
                     "Follows what you are doing. Pick which apps are allowed in the Apps tab.",
@@ -174,10 +176,6 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
         }
 
         OptionsCard(ui)
-        HistoryCard(history) {
-            History.clear(ctx)
-            historyTick++
-        }
         Spacer(Modifier.height(8.dp))
     }
 }
@@ -186,11 +184,14 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
 private fun UpdateBanner() {
     val ctx = LocalContext.current
     var dismissedTag by remember { mutableStateOf(Store.get(ctx, "upd_dismissed", "")) }
+    var showNotes by remember { mutableStateOf(false) }
     when (val u = Updater.state) {
         is UpdateState.Available -> if (dismissedTag != u.tag) Banner(
             "Update ${u.tag}",
             "A new version of DPM is available.",
             "Download",
+            secondary = "Changelog",
+            onSecondary = { showNotes = true },
             onDismiss = {
                 Store.put(ctx, "upd_dismissed", u.tag)
                 dismissedTag = u.tag
@@ -207,10 +208,11 @@ private fun UpdateBanner() {
         ) { ctx.activity()?.let { Updater.install(it) } }
         else -> {}
     }
+    if (showNotes) ChangelogDialog(Updater.latestTag, Updater.latestNotes) { showNotes = false }
 }
 
 @Composable
-private fun HeroCard(ui: UiState, liveNow: Boolean, gate: String?, hasLive: Boolean, sentAt: Long, now: Long) {
+private fun HeroCard(ui: UiState, liveNow: Boolean, gate: String?, hasLive: Boolean, sentAt: Long, nowState: androidx.compose.runtime.MutableLongState) {
     val cs = MaterialTheme.colorScheme
     val fade = MaterialTheme.motionScheme.defaultEffectsSpec<Color>()
     val heroBg by animateColorAsState(if (liveNow) cs.primaryContainer else cs.surfaceContainer, fade, label = "heroBg")
@@ -236,12 +238,7 @@ private fun HeroCard(ui: UiState, liveNow: Boolean, gate: String?, hasLive: Bool
                         color = heroSub
                     )
                     if (ui.running && gate == null) {
-                        Text(
-                            Live.sentLabel(sentAt, now),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = heroSub,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
+                        SentLabel(sentAt, nowState, heroSub)
                     }
                 }
                 Switch(
@@ -294,7 +291,9 @@ private fun OptionsCard(ui: UiState) {
 
 @Composable
 private fun PauseControl(ui: UiState) {
+    val ctx = LocalContext.current
     var menu by remember { mutableStateOf(false) }
+    var clockDialog by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxWidth().padding(top = 12.dp)) {
         if (ui.paused) {
             ExpTonalButton(onClick = { ui.setPaused(false) }, modifier = Modifier.fillMaxWidth()) { Text("Resume") }
@@ -314,52 +313,50 @@ private fun PauseControl(ui: UiState) {
                         }
                     )
                 }
+                DropdownMenuItem(
+                    text = { Text("Until a time...") },
+                    onClick = {
+                        menu = false
+                        clockDialog = true
+                    }
+                )
             }
         }
+    }
+    if (clockDialog) {
+        val now = Calendar.getInstance()
+        val state = rememberTimePickerState(
+            initialHour = now.get(Calendar.HOUR_OF_DAY),
+            initialMinute = now.get(Calendar.MINUTE),
+            is24Hour = android.text.format.DateFormat.is24HourFormat(ctx)
+        )
+        AlertDialog(
+            onDismissRequest = { clockDialog = false },
+            title = { Text("Pause until") },
+            text = { TimePicker(state = state) },
+            confirmButton = {
+                TextButton(onClick = {
+                    clockDialog = false
+                    ui.pauseFor(msUntil(state.hour, state.minute))
+                }) { Text("Pause") }
+            },
+            dismissButton = {
+                TextButton(onClick = { clockDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 
-@Composable
-private fun HistoryCard(entries: List<History.Entry>, onClear: () -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    val fmt = remember { SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()) }
-    SectionCard("History", Modifier.spatialSize()) {
-        if (entries.isEmpty()) {
-            Text(
-                "Nothing shared yet. What you share shows up here.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurfaceVariant
-            )
-        }
-        entries.take(20).forEach { e ->
-            Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                Text(
-                    "${Presence.verb(e.type)} ${e.name}",
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                val sub = listOf(e.details, e.state).filter { it.isNotBlank() }.joinToString(" \u00B7 ")
-                if (sub.isNotEmpty()) {
-                    Text(
-                        sub,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = cs.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Text(
-                    fmt.format(Date(e.at)),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = cs.outline
-                )
-            }
-        }
-        if (entries.isNotEmpty()) {
-            ExpTextButton(onClick = onClear, modifier = Modifier.padding(top = 4.dp)) { Text("Clear history") }
-        }
+private fun msUntil(hour: Int, minute: Int): Long {
+    val now = System.currentTimeMillis()
+    val target = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, hour)
+        set(Calendar.MINUTE, minute)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
     }
+    if (target.timeInMillis <= now) target.add(Calendar.DAY_OF_MONTH, 1)
+    return target.timeInMillis - now
 }
 
 @Composable
@@ -472,4 +469,30 @@ private fun WindowDialog(initial: Win?, onDismiss: () -> Unit, onSave: (Win) -> 
             }
         }
     }
+}
+
+@Composable
+private fun SentLabel(sentAt: Long, nowState: androidx.compose.runtime.MutableLongState, color: Color) {
+    Text(
+        Live.sentLabel(sentAt, nowState.longValue),
+        style = MaterialTheme.typography.labelLarge,
+        color = color,
+        modifier = Modifier.padding(top = 4.dp)
+    )
+}
+
+@Composable
+private fun TimedPreview(
+    info: Info?,
+    nowState: androidx.compose.runtime.MutableLongState,
+    empty: String,
+    imagesOn: Boolean,
+    hasAppId: Boolean
+) {
+    PresenceCard(info = info, now = nowState.longValue, empty = empty, imagesOn = imagesOn, hasAppId = hasAppId)
+}
+
+@Composable
+private fun TimedStatic(ui: UiState, nowState: androidx.compose.runtime.MutableLongState) {
+    StaticEditor(ui, nowState.longValue)
 }

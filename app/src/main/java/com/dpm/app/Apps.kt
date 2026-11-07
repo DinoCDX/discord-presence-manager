@@ -2,8 +2,6 @@ package com.dpm.app
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 
 class AppDef(val pkg: String, val type: Int, val details: String? = null, val auto: Boolean = true, val icon: String? = null)
@@ -115,18 +113,5 @@ object IconLookup {
         return listOf(words, words.replace("-", "")).filter { it.isNotEmpty() }.distinct()
     }
 
-    private fun probe(url: String): Boolean? =
-        try {
-            val conn = URL(url).openConnection() as HttpURLConnection
-            try {
-                conn.requestMethod = "HEAD"
-                conn.connectTimeout = 4000
-                conn.readTimeout = 4000
-                conn.responseCode in 200..299
-            } finally {
-                conn.disconnect()
-            }
-        } catch (e: Exception) {
-            null
-        }
+    private fun probe(url: String): Boolean? = Http.head(url)
 }

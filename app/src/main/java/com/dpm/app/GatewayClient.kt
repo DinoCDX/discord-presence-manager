@@ -21,6 +21,8 @@ object GatewayClient {
     private const val HEADLESS_URL = "https://discord.com/api/v10/users/@me/headless-sessions"
     private const val HEADLESS_DELETE_URL = "https://discord.com/api/v10/users/@me/headless-sessions/delete"
     private const val KEEP_ALIVE_MS = 14 * 60 * 1000L
+    private const val DEBOUNCE_MS = 1_500L
+    private const val MIN_GAP_MS = 2_000L
 
     private const val PLATFORM = "android"
 
@@ -38,9 +40,12 @@ object GatewayClient {
     }
 
     private fun setSession(t: String?) {
+        val wasActive = sessionToken != null
         sessionToken = t
         storage?.let { Store.put(it, SESSION_KEY, t.orEmpty()) }
-        if (t != null) Logs.add("headless session created") else Logs.add("headless session cleared")
+        if (wasActive != (t != null)) {
+            if (t != null) Logs.add("headless session created") else Logs.add("headless session cleared")
+        }
     }
 
     private fun cleanupStoredSession(bearer: String) {
@@ -127,8 +132,12 @@ object GatewayClient {
             return
         }
 
-        if (wanted && token != null) {
-            pushJob = scope.launch { pushPresence(force = false) }
+        if (wanted && token != null && pushJob?.isActive != true) {
+            val wait = (MIN_GAP_MS - (System.currentTimeMillis() - lastPushTimeMs)).coerceAtLeast(DEBOUNCE_MS)
+            pushJob = scope.launch {
+                delay(wait)
+                pushPresence(force = false)
+            }
         }
     }
 
@@ -293,14 +302,12 @@ object GatewayClient {
             }
 
             in 200..299 -> {
-                if (currentJson != lastSentActivitiesJson) {
-                    storage?.let { History.record(it, JSONArray(currentJson)) }
-                }
                 ready = true
                 attempts = 0
                 lastSentActivitiesJson = currentJson
                 lastPushTimeMs = System.currentTimeMillis()
                 Live.markSent(lastPushTimeMs)
+                Bench.push()
                 setState("Connected as $accountName")
             }
             401 -> {

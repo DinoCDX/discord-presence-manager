@@ -21,8 +21,27 @@ object Live {
     private val sent = MutableStateFlow(0L)
     val lastSent: StateFlow<Long> = sent.asStateFlow()
 
+    private var lastKey = ""
+
+    @Synchronized
     fun publish(s: Snapshot) {
+        val p = s.info
+        val key = listOf(
+            s.gate, p?.key, p?.state, p?.paused, p?.start, p?.end, p?.details,
+            s.winner, s.found.entries.joinToString(",") { "${it.key}=${it.value?.key}" }
+        ).joinToString("|")
+        if (key == lastKey) return
+        lastKey = key
         snapshot.value = s
+    }
+
+    @Volatile
+    var uiVisible = false
+        private set
+
+    fun setVisible(v: Boolean) {
+        uiVisible = v
+        if (v) PresenceService.kick()
     }
 
     fun setConnection(s: String) {

@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,7 +69,10 @@ fun SettingsScreen(
         PicturesCard(ui)
         UpdatesCard()
         AboutCard(ui, onReplayIntro)
-        if (ui.devMode) DeveloperSection(ui)
+        if (ui.devMode) {
+            DeveloperSection(ui)
+            BenchmarkCard()
+        }
         Spacer(Modifier.height(8.dp))
     }
 
@@ -138,6 +142,24 @@ private fun PresenceSettingsCard(ui: UiState) {
         ToggleRow("YouTube button", "Opens a video link or search", ui.btnVideo) { ui.setBtnVideo(it) }
         ToggleRow("Get DPM button", "Links to the project page", ui.btnRepo) { ui.setBtnRepo(it) }
         ToggleRow("Start when the phone restarts", "Presence comes back on its own if it was on", ui.bootStart) { ui.setBootStart(it) }
+        Text(
+            "How often DPM checks for other changes, like switching apps",
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.onSurfaceVariant,
+            modifier = Modifier.padding(top = 12.dp)
+        )
+        Text("Screen on", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 8.dp))
+        Segmented(
+            TickRate.OPTIONS.map { "${it}s" },
+            TickRate.OPTIONS.indexOf(ui.tickOn).coerceAtLeast(0),
+            { ui.setTickOn(TickRate.OPTIONS[it]) }
+        )
+        Text("Screen off", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 8.dp))
+        Segmented(
+            TickRate.OPTIONS.map { "${it}s" },
+            TickRate.OPTIONS.indexOf(ui.tickOff).coerceAtLeast(0),
+            { ui.setTickOff(TickRate.OPTIONS[it]) }
+        )
         val batteryOk = remember(ui.permTick) { Perms.battery(ctx) }
         if (!batteryOk) {
             Text(
@@ -172,6 +194,7 @@ private fun UpdatesCard() {
     val ctx = LocalContext.current
     val cs = MaterialTheme.colorScheme
     var auto by remember { mutableStateOf(Store.get(ctx, "upd_auto", "1") == "1") }
+    var showNotes by remember { mutableStateOf(false) }
     val st = Updater.state
     val summary = when (st) {
         is UpdateState.Idle -> "Installed ${Updater.installedVersion(ctx)}"
@@ -208,6 +231,12 @@ private fun UpdatesCard() {
                 Text("Check for updates")
             }
         }
+        if (Updater.latestNotes.isNotEmpty()) {
+            ExpTextButton(onClick = { showNotes = true }, modifier = Modifier.padding(top = 4.dp)) {
+                Text("View changelog")
+            }
+        }
+        if (showNotes) ChangelogDialog(Updater.latestTag, Updater.latestNotes) { showNotes = false }
         ToggleRow("Check automatically", "At most once every 12 hours", auto) {
             auto = it
             Store.put(ctx, "upd_auto", if (it) "1" else "0")
@@ -347,13 +376,8 @@ private fun DevTest() {
 private fun DevLogs() {
     val ctx = LocalContext.current
     val cs = MaterialTheme.colorScheme
-    var logText by remember { mutableStateOf(Logs.text()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            logText = Logs.text()
-            delay(1000)
-        }
-    }
+    val logVersion by Logs.version.collectAsState()
+    val logText = remember(logVersion) { Logs.text() }
     SectionCard("Logs") {
         Column(Modifier.fillMaxWidth().heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
             SelectionContainer {
@@ -371,7 +395,6 @@ private fun DevLogs() {
             ExpOutlinedButton(
                 onClick = {
                     Logs.clear()
-                    logText = Logs.text()
                 },
                 modifier = Modifier.weight(1f)
             ) { Text("Clear") }

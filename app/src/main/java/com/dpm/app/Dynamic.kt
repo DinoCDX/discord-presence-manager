@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
 import android.media.MediaMetadata
+import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.SystemClock
@@ -52,6 +53,7 @@ object Dynamic {
     private const val PLAY_URL = "https://raw.githubusercontent.com/DinoCDX/discord-presence-manager/main/docs/assets/play.png"
     private const val PAUSE_URL = "https://raw.githubusercontent.com/DinoCDX/discord-presence-manager/main/docs/assets/pause.png"
     private const val HOLD_MS = 8_000L
+    private const val PAUSE_LIMIT_MS = 120_000L
     private var loggedKey = ""
     private var mStart = 0L
     private var homePkg: String? = null
@@ -93,8 +95,38 @@ object Dynamic {
     var winner: String? = null
         private set
 
-    @Synchronized
+    @Volatile
+    private var mediaVersion = 0
+    private val mdCache = HashMap<Boolean, MetaCache>()
+
+    private class MetaCache(val pkg: String, val version: Int, val at: Long, val md: MediaMetadata)
+
+    fun markMediaDirty() {
+        mediaVersion++
+    }
+
+    private fun metadataFor(ctl: MediaController, video: Boolean): MediaMetadata? {
+        val now = System.currentTimeMillis()
+        val hit = mdCache[video]
+        if (hit != null && hit.pkg == ctl.packageName && hit.version == mediaVersion && now - hit.at < 60_000L) {
+            return hit.md
+        }
+        val md = ctl.metadata ?: return null
+        mdCache[video] = MetaCache(ctl.packageName, mediaVersion, now, md)
+        return md
+    }
+
     fun current(c: Context): Info? {
+        val t0 = System.nanoTime()
+        try {
+            return currentInner(c)
+        } finally {
+            Bench.media((System.nanoTime() - t0) / 1_000_000.0)
+        }
+    }
+
+    @Synchronized
+    private fun currentInner(c: Context): Info? {
         val fg = Foreground.pkg(c)
         val out = LinkedHashMap<String, Info?>()
         var pick: Info? = null
@@ -157,7 +189,7 @@ object Dynamic {
     private fun stateIcon(c: Context, i: Info): Pair<String, String>? {
         val app = Art.appId(c)
         if (!Art.validId(app)) return null
-        val mp = Art.external(c, app, if (i.paused) PAUSE_URL else PLAY_URL) ?: return null
+        val mp = Art.externalCached(c, app, if (i.paused) PAUSE_URL else PLAY_URL) ?: return null
         return mp to if (i.paused) "Paused" else "Playing"
     }
 
@@ -208,6 +240,24 @@ object Dynamic {
         keys.firstNotNullOfOrNull { k -> md.getString(k)?.takeIf { it.isNotBlank() } }
 
     private val lastPlaying = HashMap<Boolean, String>()
+    private val lastMedia = HashMap<Boolean, Pair<Info, Long>>()
+    private val lastArt = HashMap<Boolean, Pair<String, android.graphics.Bitmap>>()
+    private val durations = HashMap<String, Long>()
+    private const val GRACE_MS = 5_000L
+
+    private fun grace(video: Boolean): Info? {
+        val g = lastMedia[video] ?: return null
+        return if (System.currentTimeMillis() - g.second < GRACE_MS) g.first else null
+    }
+
+    private fun stableDur(identity: String, raw: Long): Long {
+        val known = durations[identity]
+        if (known != null && (raw <= 0L || abs(raw - known) <= 10_000L)) return known
+        if (durations.size > 200) durations.clear()
+        if (raw > 0L) durations[identity] = raw
+        return raw
+    }
+    private val pausedSince = HashMap<String, Long>()
 
     private fun clock(ms: Long): String {
         val s = (ms / 1000).coerceAtLeast(0L)
@@ -221,7 +271,10 @@ object Dynamic {
             val live = msm.getActiveSessions(ComponentName(c, MediaListener::class.java)).filter {
                 it.packageName !in ignored && Apps.isWatching(it.packageName, category(c, it.packageName)) == video
             }
-            val playing = live.filter { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+            val playing = live.filter {
+                it.playbackState?.state == PlaybackState.STATE_PLAYING ||
+                    it.playbackState?.state == PlaybackState.STATE_BUFFERING
+            }
             val recent = lastPlaying[video]
             val paused = live.filter {
                 it.playbackState?.state == PlaybackState.STATE_PAUSED &&
@@ -229,8 +282,8 @@ object Dynamic {
             }
             val ctl = playing.firstOrNull { it.packageName == fg } ?: playing.firstOrNull()
                 ?: paused.firstOrNull { it.packageName == fg } ?: paused.firstOrNull()
-                ?: return null
-            val md = ctl.metadata ?: return null
+                ?: return grace(video)
+            val md = metadataFor(ctl, video) ?: return null
             val title = text(md, MediaMetadata.METADATA_KEY_TITLE, MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
                 ?: return null
             val artist = text(
@@ -241,20 +294,28 @@ object Dynamic {
                 MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE
             )
             val album = md.getString(MediaMetadata.METADATA_KEY_ALBUM)
-            val dur = md.getLong(MediaMetadata.METADATA_KEY_DURATION)
+            val dur = stableDur("${ctl.packageName}|$title|$artist", md.getLong(MediaMetadata.METADATA_KEY_DURATION))
             val ps = ctl.playbackState ?: return null
             val pkg = ctl.packageName
-            val isPaused = ps.state != PlaybackState.STATE_PLAYING
+            val isPaused = ps.state == PlaybackState.STATE_PAUSED
             val now = System.currentTimeMillis()
             if (!isPaused) lastPlaying[video] = pkg
-            val key = "$pkg|$title|$artist|$dur"
+            val key = "$pkg|$title|$artist"
             val rawPos = if (ps.position >= 0) ps.position else 0L
 
+            if (isPaused) {
+                val since = pausedSince.getOrPut(key) { now }
+                if (now - since > PAUSE_LIMIT_MS) {
+                    lastLive = null
+                    return null
+                }
+            }
             val start: Long? = if (isPaused) {
                 mKey = ""
                 lastRawPos = Long.MIN_VALUE
                 null
             } else {
+                pausedSince.remove(key)
                 val frozen = key == mKey && ps.position == lastRawPos
                 lastRawPos = ps.position
                 val s = when {
@@ -266,7 +327,7 @@ object Dynamic {
                         }
                         p = if (dur > 0) p.coerceIn(0L, dur) else p.coerceAtLeast(0L)
                         val guess = now - p
-                        if (key == mKey && abs(guess - mStart) < 3000) mStart else guess
+                        if (key == mKey && abs(guess - mStart) < 5000) mStart else guess
                     }
                     else -> if (key == mKey) mStart else now
                 }
@@ -291,6 +352,8 @@ object Dynamic {
             val bmp = md.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
                 ?: md.getBitmap(MediaMetadata.METADATA_KEY_ART)
                 ?: md.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
+            val art = bmp ?: lastArt[video]?.takeIf { it.first == key }?.second
+            if (bmp != null) lastArt[video] = key to bmp
             val media = Info(
                 type = if (Apps.isWatching(pkg, category(c, pkg))) 3 else 2,
                 name = appLabel(c, pkg),
@@ -301,7 +364,7 @@ object Dynamic {
                 end = if (start == null || dur <= 0) null else start + dur,
                 pkg = pkg,
                 artUri = uri,
-                bitmap = bmp,
+                bitmap = art,
                 source = if (video) Sources.VIDEO else Sources.MUSIC,
                 link = md.getString(MediaMetadata.METADATA_KEY_MEDIA_URI),
                 paused = isPaused,
@@ -311,6 +374,7 @@ object Dynamic {
                 loggedKey = key
                 Logs.add("media pkg=$pkg paused=$isPaused artUri=${uri ?: "none"} bitmap=${bmp != null} pos=${ps.position}")
             }
+            lastMedia[video] = media to System.currentTimeMillis()
             media
         } catch (e: SecurityException) {
             null

@@ -3,6 +3,7 @@ package com.dpm.app
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -11,6 +12,7 @@ import androidx.compose.runtime.setValue
 
 private const val SAVE_DELAY_MS = 3000L
 
+@Stable
 class UiState(private val c: Context) {
     var accounts by mutableStateOf(listOf<Account>())
     var activeId by mutableStateOf("")
@@ -94,6 +96,9 @@ class UiState(private val c: Context) {
 
     var fallbackStatic by mutableStateOf(false)
 
+    @set:JvmName("assignTickOn") var tickOn by mutableStateOf(5)
+    @set:JvmName("assignTickOff") var tickOff by mutableStateOf(15)
+
     @set:JvmName("assignNetRule") var netRule by mutableStateOf(Net.ANY)
         private set
 
@@ -150,6 +155,8 @@ class UiState(private val c: Context) {
         btnRepo = flag("btn_repo", true)
         devMode = flag("dev_mode", false)
         fallbackStatic = flag("static_fallback", false)
+        tickOn = TickRate.onSec(c)
+        tickOff = TickRate.offSec(c)
         netRule = Net.rule(c)
     }
 
@@ -489,8 +496,12 @@ class UiState(private val c: Context) {
     fun setAppMode(pkg: String, m: Int) {
         showApps = if (m == 1) showApps + pkg else showApps - pkg
         ignoreApps = if (m == 2) ignoreApps + pkg else ignoreApps - pkg
-        Store.putPkgs(c, "show_apps", showApps)
-        Store.putPkgs(c, "ignore_apps", ignoreApps)
+        val shows = showApps
+        val ignores = ignoreApps
+        Bg.exec.execute {
+            Store.putPkgs(c, "show_apps", shows)
+            Store.putPkgs(c, "ignore_apps", ignores)
+        }
         markSaved()
         PresenceService.kick()
     }
@@ -502,19 +513,33 @@ class UiState(private val c: Context) {
             val locked = customs.keys + keep
             showApps - pkgs.filter { it !in locked }.toSet()
         }
-        Store.putPkgs(c, "show_apps", showApps)
+        val shows = showApps
+        Bg.exec.execute { Store.putPkgs(c, "show_apps", shows) }
         PresenceService.kick()
     }
 
     fun setCustom(pkg: String, v: Custom?) {
         customs = if (v == null) customs - pkg else customs + (pkg to v)
-        Customs.save(c, customs)
+        val snapshot = customs
+        Bg.exec.execute { Customs.save(c, snapshot) }
         markSaved()
         PresenceService.kick()
     }
 
     fun setTheme(v: String) { themeMode = v; Store.put(c, "theme", v) }
     fun switchDevMode(v: Boolean) { devMode = v; put("dev_mode", v) }
+
+    fun setTickOn(s: Int) {
+        tickOn = s
+        Store.put(c, "tick_on", s.toString())
+        PresenceService.kick()
+    }
+
+    fun setTickOff(s: Int) {
+        tickOff = s
+        Store.put(c, "tick_off", s.toString())
+        PresenceService.kick()
+    }
 
     fun switchFallback(v: Boolean) { fallbackStatic = v; put("static_fallback", v); PresenceService.kick() }
 

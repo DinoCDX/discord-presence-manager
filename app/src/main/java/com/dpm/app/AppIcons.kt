@@ -9,7 +9,9 @@ import android.util.LruCache
 import java.io.ByteArrayOutputStream
 
 object AppIcons {
-    private val cache = LruCache<String, Bitmap>(300)
+    private val cache = object : LruCache<String, Bitmap>(6 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
+    }
 
     fun cached(pkg: String, px: Int): Bitmap? = cache.get("$pkg@$px")
 
