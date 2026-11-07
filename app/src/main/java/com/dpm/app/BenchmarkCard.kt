@@ -32,11 +32,13 @@ import java.util.Locale
 fun BenchmarkCard() {
     val cs = MaterialTheme.colorScheme
     val ctx = LocalContext.current
-    var list by remember { mutableStateOf<List<Bench.Sample>>(emptyList()) }
+    var service by remember { mutableStateOf<List<Bench.Sample>>(emptyList()) }
+    var app by remember { mutableStateOf<List<Bench.Sample>>(emptyList()) }
     var on by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         while (true) {
-            list = withContext(Dispatchers.IO) { Bench.load(ctx) }
+            service = withContext(Dispatchers.IO) { Bench.load(ctx) }
+            app = withContext(Dispatchers.IO) { Bench.load(ctx, app = true) }
             on = Bench.recording(ctx)
             delay(2_000L)
         }
@@ -44,8 +46,8 @@ fun BenchmarkCard() {
     SectionCard("Benchmarks", Modifier.fillMaxWidth()) {
         Text(
             when {
-                on && !PresenceService.alive -> "Recording, but presence is off. Samples are taken while presence runs."
-                on -> "Recording every 2 seconds. The last 5 minutes are shown."
+                on && !Live.isAlive() -> "Recording. Presence is off, so the presence service has no samples. The app is sampled while DPM is open."
+                on -> "Recording every 2 seconds. The last 5 minutes are shown. The app is sampled while DPM is open."
                 else -> "Off. Start recording, then turn presence on."
             },
             style = MaterialTheme.typography.bodyMedium,
@@ -60,17 +62,19 @@ fun BenchmarkCard() {
                 } else {
                     Bench.start(ctx)
                     on = true
-                    list = emptyList()
+                    service = emptyList()
+                    app = emptyList()
                 }
             }) {
                 Text(if (on) "Stop" else "Start")
             }
             ExpTextButton(onClick = {
                 Bench.clear(ctx)
-                list = emptyList()
+                service = emptyList()
+                app = emptyList()
             }) { Text("Clear") }
         }
-        if (list.isEmpty()) {
+        if (service.isEmpty() && app.isEmpty()) {
             Text(
                 "No samples yet.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -78,46 +82,72 @@ fun BenchmarkCard() {
                 modifier = Modifier.padding(top = 12.dp)
             )
         } else {
-            val pss = list.map { it.pssMb }
-            val heap = list.map { it.heapMb }
-            val cpu = list.map { it.cpu }
-            val last = list.last()
-
-            Chart("Memory (MB)", listOf(cs.primary to pss, cs.tertiary to heap))
-            Text(
-                "RAM ${stat(pss)} MB  ·  Heap ${stat(heap)} MB",
-                style = MaterialTheme.typography.labelLarge,
-                color = cs.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-            Text(
-                "Breakdown avg: Java ${f(list.map { it.javaMb }.average())} · " +
-                    "Native ${f(list.map { it.nativeMb }.average())} · " +
-                    "Graphics ${f(list.map { it.graphicsMb }.average())} · " +
-                    "Code ${f(list.map { it.codeMb }.average())} · " +
-                    "Other ${f(list.map { it.otherMb }.average())} MB",
-                style = MaterialTheme.typography.labelLarge,
-                color = cs.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-
-            Chart("CPU (%)", listOf(cs.primary to cpu))
-            Text(
-                "CPU ${stat(cpu)} %",
-                style = MaterialTheme.typography.labelLarge,
-                color = cs.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-
-            Text(
-                "Service update: avg ${f(last.tickAvg)} ms, slowest ${f(last.tickMax)} ms\n" +
-                    "Media lookup avg ${f(last.mediaAvg)} ms  ·  Discord pushes ${f(last.pushesPerMin)} per min",
-                style = MaterialTheme.typography.bodyMedium,
-                color = cs.onSurface,
-                modifier = Modifier.padding(top = 12.dp)
-            )
+            BenchSection("Presence service", service, full = true)
+            BenchSection("App", app, full = false)
         }
     }
+}
+
+@Composable
+private fun BenchSection(title: String, list: List<Bench.Sample>, full: Boolean) {
+    val cs = MaterialTheme.colorScheme
+    Text(
+        title,
+        style = MaterialTheme.typography.titleMediumEmphasized,
+        color = cs.primary,
+        modifier = Modifier.padding(top = 16.dp)
+    )
+    if (list.isEmpty()) {
+        Text(
+            "No samples yet.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = cs.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        return
+    }
+    val pss = list.map { it.pssMb }
+    val heap = list.map { it.heapMb }
+    val cpu = list.map { it.cpu }
+    val last = list.last()
+
+    Chart("Memory (MB)", listOf(cs.primary to pss, cs.tertiary to heap))
+    Text(
+        "RAM ${stat(pss)} MB  ·  Heap ${stat(heap)} MB",
+        style = MaterialTheme.typography.labelLarge,
+        color = cs.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp)
+    )
+    Text(
+        "Breakdown avg: Java ${f(list.map { it.javaMb }.average())} · " +
+            "Native ${f(list.map { it.nativeMb }.average())} · " +
+            "Graphics ${f(list.map { it.graphicsMb }.average())} · " +
+            "Code ${f(list.map { it.codeMb }.average())} · " +
+            "Other ${f(list.map { it.otherMb }.average())} MB",
+        style = MaterialTheme.typography.labelLarge,
+        color = cs.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp)
+    )
+
+    Chart("CPU (%)", listOf(cs.primary to cpu))
+    Text(
+        "CPU ${stat(cpu)} %",
+        style = MaterialTheme.typography.labelLarge,
+        color = cs.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp)
+    )
+
+    Text(
+        if (full) {
+            "Service update: avg ${f(last.tickAvg)} ms, slowest ${f(last.tickMax)} ms\n" +
+                "Media lookup avg ${f(last.mediaAvg)} ms  ·  Discord pushes ${f(last.pushesPerMin)} per min"
+        } else {
+            "Media lookup avg ${f(last.mediaAvg)} ms"
+        },
+        style = MaterialTheme.typography.bodyMedium,
+        color = cs.onSurface,
+        modifier = Modifier.padding(top = 12.dp)
+    )
 }
 
 @Composable

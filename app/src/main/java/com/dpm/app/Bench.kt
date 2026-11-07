@@ -23,26 +23,27 @@ object Bench {
     )
 
     private const val MAX = 150
+    private const val WINDOW_MS = 60_000L
     private const val CLK_TCK = 100.0
     private val lock = Any()
     private val pushTimes = ArrayDeque<Long>()
-    private var tickSum = 0.0
-    private var tickCount = 0
-    private var tickMax = 0.0
-    private var mediaSum = 0.0
-    private var mediaCount = 0
+    private val tickLog = ArrayDeque<Pair<Long, Double>>()
+    private val mediaLog = ArrayDeque<Pair<Long, Double>>()
 
     private fun onFile(c: Context) = File(c.filesDir, "bench.on")
-    private fun dataFile(c: Context) = File(c.filesDir, "bench.jsonl")
+    private fun dataFile(c: Context, app: Boolean = false) =
+        File(c.filesDir, if (app) "bench_app.jsonl" else "bench.jsonl")
 
     fun recording(c: Context): Boolean = onFile(c).exists()
 
     fun start(c: Context) {
         synchronized(lock) {
-            resetWindow()
             pushTimes.clear()
+            tickLog.clear()
+            mediaLog.clear()
         }
         dataFile(c).delete()
+        dataFile(c, app = true).delete()
         onFile(c).createNewFile()
     }
 
@@ -52,20 +53,18 @@ object Bench {
 
     fun clear(c: Context) {
         dataFile(c).delete()
+        dataFile(c, app = true).delete()
     }
 
     fun tick(ms: Double) {
         synchronized(lock) {
-            tickSum += ms
-            tickCount++
-            if (ms > tickMax) tickMax = ms
+            tickLog.addLast(System.currentTimeMillis() to ms)
         }
     }
 
     fun media(ms: Double) {
         synchronized(lock) {
-            mediaSum += ms
-            mediaCount++
+            mediaLog.addLast(System.currentTimeMillis() to ms)
         }
     }
 
@@ -75,13 +74,19 @@ object Bench {
         }
     }
 
-    fun sample(c: Context) {
+    private fun prune(now: Long) {
+        while (pushTimes.isNotEmpty() && now - pushTimes.first() > WINDOW_MS) pushTimes.removeFirst()
+        while (tickLog.isNotEmpty() && now - tickLog.first().first > WINDOW_MS) tickLog.removeFirst()
+        while (mediaLog.isNotEmpty() && now - mediaLog.first().first > WINDOW_MS) mediaLog.removeFirst()
+    }
+
+    fun sample(c: Context, app: Boolean = false) {
         val now = System.currentTimeMillis()
         val mi = Debug.MemoryInfo()
         Debug.getMemoryInfo(mi)
         val rt = Runtime.getRuntime()
         val ticks = cpuTicks()
-        val prev = readLast(c)
+        val prev = readLast(c, app)
         val cpu = if (prev == null) {
             0.0
         } else {
@@ -93,12 +98,11 @@ object Bench {
         var mAvg = 0.0
         var pRate = 0.0
         synchronized(lock) {
-            tAvg = if (tickCount == 0) 0.0 else tickSum / tickCount
-            tMax = tickMax
-            mAvg = if (mediaCount == 0) 0.0 else mediaSum / mediaCount
-            while (pushTimes.isNotEmpty() && now - pushTimes.first() > 60_000L) pushTimes.removeFirst()
+            prune(now)
+            tAvg = if (tickLog.isEmpty()) 0.0 else tickLog.map { it.second }.average()
+            tMax = tickLog.maxOfOrNull { it.second } ?: 0.0
+            mAvg = if (mediaLog.isEmpty()) 0.0 else mediaLog.map { it.second }.average()
             pRate = pushTimes.size.toDouble()
-            resetWindow()
         }
         val o = JSONObject()
             .put("t", now)
@@ -115,13 +119,13 @@ object Bench {
             .put("tickMax", tMax)
             .put("mediaAvg", mAvg)
             .put("push", pRate)
-        val f = dataFile(c)
+        val f = dataFile(c, app)
         f.appendText(o.toString() + "\n")
         if (f.length() > 80_000L) trim(f)
     }
 
-    fun load(c: Context): List<Sample> = try {
-        val f = dataFile(c)
+    fun load(c: Context, app: Boolean = false): List<Sample> = try {
+        val f = dataFile(c, app)
         if (!f.exists()) emptyList() else f.readLines().takeLast(MAX).mapNotNull { parse(it) }
     } catch (e: Exception) {
         emptyList()
@@ -148,8 +152,8 @@ object Bench {
         null
     }
 
-    private fun readLast(c: Context): JSONObject? = try {
-        val f = dataFile(c)
+    private fun readLast(c: Context, app: Boolean): JSONObject? = try {
+        val f = dataFile(c, app)
         if (!f.exists()) null else f.useLines { it.lastOrNull { l -> l.isNotBlank() } }?.let { JSONObject(it) }
     } catch (e: Exception) {
         null
@@ -162,14 +166,6 @@ object Bench {
 
     private fun stat(mi: Debug.MemoryInfo, key: String): Double =
         (mi.getMemoryStat(key)?.toDoubleOrNull() ?: 0.0) / 1024.0
-
-    private fun resetWindow() {
-        tickSum = 0.0
-        tickCount = 0
-        tickMax = 0.0
-        mediaSum = 0.0
-        mediaCount = 0
-    }
 
     private fun cpuTicks(): Double =
         try {

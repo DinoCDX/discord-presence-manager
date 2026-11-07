@@ -47,8 +47,17 @@ object Store {
     }
 
     fun put(c: Context, k: String, v: String) {
-        p(c).edit().putString(k, v).apply()
+        p(c).edit().putString(k, v).commit()
         cache[k] = v
+        if (!Procs.inService) Procs.settingsChanged(c)
+    }
+
+    @Synchronized
+    fun reload() {
+        sp = null
+        cache.clear()
+        pkgMemo.clear()
+        accountList = null
     }
 
     private fun drop(c: Context, vararg keys: String) {
@@ -57,7 +66,8 @@ object Store {
             e.remove(it)
             cache[it] = ABSENT
         }
-        e.apply()
+        e.commit()
+        if (!Procs.inService) Procs.settingsChanged(c)
     }
 
     fun pkgs(c: Context, k: String): Set<String> {
@@ -81,7 +91,7 @@ object Store {
     fun accounts(c: Context): List<Account> {
         accountList?.let { return it }
 
-        drop(c, "token")
+        if (!Procs.inService) drop(c, "token")
         val raw = get(c, "accounts", "")
         if (raw.isEmpty()) return emptyList()
         val all = try {
@@ -94,7 +104,7 @@ object Store {
             return emptyList()
         }
         val list = all.filter { get(c, DiscordOAuth.refreshKey(it.id), "").isNotEmpty() }
-        if (list.size != all.size) {
+        if (!Procs.inService && list.size != all.size) {
             save(c, list)
             if (list.isEmpty()) {
                 drop(c, "active_id", "name", "uid")

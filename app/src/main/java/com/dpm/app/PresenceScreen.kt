@@ -6,6 +6,20 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.material3.toShape
+import androidx.compose.material3.MaterialShapes
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -75,14 +89,15 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
     val ctx = LocalContext.current
     val cs = MaterialTheme.colorScheme
 
-    val snap by Live.flow.collectAsState()
     val conn by Live.connection.collectAsState()
-    val sentAt by Live.lastSent.collectAsState()
     var fresh by remember { mutableStateOf<Live.Snapshot?>(null) }
     LaunchedEffect(ui.running, ui.paused, ui.mode, ui.schedOn, ui.onlyOnline, ui.fallbackStatic, ui.netRule, ui.permTick) {
-        if (!PresenceService.alive) fresh = withContext(Dispatchers.IO) { Live.compute(ctx) }
+        Live.tick.collect {
+            val next = withContext(Dispatchers.IO) { Live.compute(ctx) }
+            if (next.signature() != fresh?.signature()) fresh = next
+        }
     }
-    val shown = if (PresenceService.alive) snap else fresh ?: snap
+    val shown = fresh ?: Live.Snapshot(null, null, emptyMap(), null)
     val preview = shown.info
     val gate = shown.gate
     val found = shown.found
@@ -93,7 +108,7 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
     LaunchedEffect(timed, ui.running) {
         while (isActive) {
             nowState.longValue = System.currentTimeMillis()
-            delay(if (timed) 1_000L else 15_000L)
+            delay(if (timed || ui.running) 1_000L else 15_000L)
         }
     }
 
@@ -114,8 +129,8 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
     val notifGranted = notifOk || askedTick > 0 && Perms.notifications(ctx)
 
     Column(
-        Modifier.verticalScroll(scroll).padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Gap12
+        Modifier.verticalScroll(scroll).padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         if (!notifGranted && Build.VERSION.SDK_INT >= 33) {
             Banner(
@@ -135,7 +150,7 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
         }
         UpdateBanner()
 
-        HeroCard(ui, ui.running && gate == null && live != null, gate, live != null, sentAt, nowState)
+        HeroCard(ui, ui.running && gate == null && live != null, gate, live != null, Live.plain(conn), nowState)
 
         SectionCard("Preview") {
             TimedPreview(
@@ -151,16 +166,11 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
             Segmented(listOf("Dynamic", "Static"), if (ui.mode == "dynamic") 0 else 1, {
                 ui.setMode(if (it == 0) "dynamic" else "static")
             })
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
             if (ui.mode == "static") {
                 TimedStatic(ui, nowState)
             } else {
-                Text(
-                    "Follows what you are doing. Pick which apps are allowed in the Apps tab.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = cs.onSurfaceVariant
-                )
-                ExpOutlinedButton(onClick = openApps, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                ExpOutlinedButton(onClick = openApps, modifier = Modifier.fillMaxWidth()) {
                     Text("Manage apps")
                 }
                 ToggleRow(
@@ -176,7 +186,6 @@ fun PresenceScreen(ui: UiState, openApps: () -> Unit, scroll: ScrollState = reme
         }
 
         OptionsCard(ui)
-        Spacer(Modifier.height(8.dp))
     }
 }
 
@@ -212,47 +221,103 @@ private fun UpdateBanner() {
 }
 
 @Composable
-private fun HeroCard(ui: UiState, liveNow: Boolean, gate: String?, hasLive: Boolean, sentAt: Long, nowState: androidx.compose.runtime.MutableLongState) {
+private fun HeroCard(ui: UiState, liveNow: Boolean, gate: String?, hasLive: Boolean, status: String, nowState: androidx.compose.runtime.MutableLongState) {
     val cs = MaterialTheme.colorScheme
     val fade = MaterialTheme.motionScheme.defaultEffectsSpec<Color>()
-    val heroBg by animateColorAsState(if (liveNow) cs.primaryContainer else cs.surfaceContainer, fade, label = "heroBg")
+    val heroBg by animateColorAsState(if (liveNow) cs.primaryContainer else cs.surfaceContainerHigh, fade, label = "heroBg")
     val heroTitle by animateColorAsState(if (liveNow) cs.onPrimaryContainer else cs.onSurface, fade, label = "heroTitle")
     val heroSub by animateColorAsState(if (liveNow) cs.onPrimaryContainer else cs.onSurfaceVariant, fade, label = "heroSub")
+    val motion = rememberInfiniteTransition(label = "hero")
+    val pulse by motion.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1100), RepeatMode.Reverse),
+        label = "pulse"
+    )
+    val spin by motion.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(40_000, easing = LinearEasing)),
+        label = "spin"
+    )
+    val sentAt by Live.lastSent.collectAsState()
+    val statusText = when {
+        !ui.running -> "Off"
+        gate != null -> gate
+        hasLive -> "Live on Discord"
+        else -> "On, nothing to show right now"
+    }
+    val detail = if (ui.running && gate == null) "$status  \u00B7  ${Live.sentLabel(sentAt, nowState.longValue)}" else null
+
     Card(
         modifier = Modifier.fillMaxWidth().spatialSize(),
         shape = MaterialTheme.shapes.extraLargeIncreased,
         colors = CardDefaults.cardColors(containerColor = heroBg)
     ) {
-        Column(Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Share my presence", style = MaterialTheme.typography.titleLargeEmphasized, color = heroTitle)
-                    Text(
-                        when {
-                            !ui.running -> "Off"
-                            gate != null -> gate
-                            hasLive -> "Live on Discord"
-                            else -> "On, nothing to show right now"
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = heroSub
-                    )
-                    if (ui.running && gate == null) {
-                        SentLabel(sentAt, nowState, heroSub)
-                    }
-                }
-                Switch(
-                    checked = ui.running,
-                    onCheckedChange = { ui.setRunning(it) },
-                    thumbContent = if (ui.running) {
-                        { Icon(Icons.Default.Check, null, Modifier.size(SwitchDefaults.IconSize)) }
-                    } else {
-                        null
-                    }
+        Box(Modifier.fillMaxWidth()) {
+            // Decoration sits behind the content and never takes up layout space.
+            Box(Modifier.matchParentSize()) {
+                Box(
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 64.dp, y = 64.dp)
+                        .size(190.dp)
+                        .graphicsLayer { rotationZ = if (liveNow) spin else 0f }
+                        .clip(MaterialShapes.Cookie9Sided.toShape())
+                        .background(cs.primary.copy(alpha = if (liveNow) 0.14f else 0.07f))
                 )
             }
-            AnimatedVisibility(ui.running) {
-                PauseControl(ui)
+            Column(Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = MaterialShapes.Clover4Leaf.toShape(),
+                        color = if (liveNow) cs.primary else cs.secondaryContainer
+                    ) {
+                        Icon(
+                            painterResource(R.drawable.ic_presence),
+                            null,
+                            tint = if (liveNow) cs.onPrimary else cs.onSecondaryContainer,
+                            modifier = Modifier.padding(12.dp).size(28.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Share my presence", style = MaterialTheme.typography.titleLargeEmphasized, color = heroTitle)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (liveNow) {
+                                Box(
+                                    Modifier
+                                        .padding(end = 8.dp)
+                                        .size(8.dp)
+                                        .graphicsLayer { alpha = pulse }
+                                        .clip(CircleShape)
+                                        .background(heroTitle)
+                                )
+                            }
+                            Text(statusText, style = MaterialTheme.typography.bodyLarge, color = heroSub)
+                        }
+                    }
+                    Switch(
+                        checked = ui.running,
+                        onCheckedChange = { ui.setRunning(it) },
+                        thumbContent = if (ui.running) {
+                            { Icon(Icons.Default.Check, null, Modifier.size(SwitchDefaults.IconSize)) }
+                        } else {
+                            null
+                        }
+                    )
+                }
+                if (detail != null) {
+                    Text(
+                        detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = heroSub,
+                        modifier = Modifier.padding(top = 10.dp)
+                    )
+                }
+                AnimatedVisibility(ui.running) {
+                    PauseControl(ui)
+                }
             }
         }
     }
@@ -472,7 +537,8 @@ private fun WindowDialog(initial: Win?, onDismiss: () -> Unit, onSave: (Win) -> 
 }
 
 @Composable
-private fun SentLabel(sentAt: Long, nowState: androidx.compose.runtime.MutableLongState, color: Color) {
+private fun SentLabel(nowState: androidx.compose.runtime.MutableLongState, color: Color) {
+    val sentAt by Live.lastSent.collectAsState()
     Text(
         Live.sentLabel(sentAt, nowState.longValue),
         style = MaterialTheme.typography.labelLarge,
@@ -489,10 +555,10 @@ private fun TimedPreview(
     imagesOn: Boolean,
     hasAppId: Boolean
 ) {
-    PresenceCard(info = info, now = nowState.longValue, empty = empty, imagesOn = imagesOn, hasAppId = hasAppId)
+    PresenceCard(info = info, empty = empty, imagesOn = imagesOn, hasAppId = hasAppId, nowState = nowState)
 }
 
 @Composable
 private fun TimedStatic(ui: UiState, nowState: androidx.compose.runtime.MutableLongState) {
-    StaticEditor(ui, nowState.longValue)
+    StaticEditor(ui, nowState)
 }

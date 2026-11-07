@@ -6,6 +6,9 @@ import androidx.compose.material.icons.Icons
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,8 +40,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-fun PresenceCard(info: Info?, now: Long, empty: String, imagesOn: Boolean, hasAppId: Boolean) {
+fun PresenceCard(
+    info: Info?,
+    now: Long = 0L,
+    empty: String,
+    imagesOn: Boolean,
+    hasAppId: Boolean,
+    nowState: androidx.compose.runtime.MutableLongState? = null
+) {
+    val ownState = androidx.compose.runtime.remember(now) { androidx.compose.runtime.mutableLongStateOf(now) }
+    val clockState = nowState ?: ownState
     val cs = MaterialTheme.colorScheme
+    val ctx = LocalContext.current
     if (info == null) {
         Text(empty, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
         return
@@ -82,29 +95,17 @@ fun PresenceCard(info: Info?, now: Long, empty: String, imagesOn: Boolean, hasAp
             }
         }
 
-        val s = info.start
-        val e = info.end
-        if (s != null && e != null && e > s) {
-            val done = (now - s).coerceIn(0L, e - s)
-            LinearWavyProgressIndicator(
-                progress = { (done.toFloat() / (e - s)).coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(clock(done), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-                Text(clock(e - s), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-            }
-        } else if (s != null) {
-            Text("${clock(now - s)} elapsed", style = MaterialTheme.typography.labelLarge, color = cs.primary)
-        } else if (e != null && e > now) {
-            Text("${clock(e - now)} left", style = MaterialTheme.typography.labelLarge, color = cs.primary)
-        }
+        TimeRow(info, clockState)
 
         if (info.buttons.isNotEmpty()) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                info.buttons.forEach { (label, _) ->
+                info.buttons.forEach { (label, url) ->
                     Box(
                         Modifier.weight(1f).clip(MaterialTheme.shapes.medium)
+                            .clickable {
+                                runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                    .onFailure { ctx.toast("No app can open this link") }
+                            }
                             .background(cs.surfaceContainerHighest).padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -206,5 +207,28 @@ private fun StateBadge(paused: Boolean, modifier: Modifier) {
                 modifier = Modifier.size(18.dp)
             )
         }
+    }
+}
+
+@Composable
+private fun TimeRow(info: Info, clockState: androidx.compose.runtime.MutableLongState) {
+    val cs = MaterialTheme.colorScheme
+    val s = info.start
+    val e = info.end
+    val now = clockState.longValue
+    if (s != null && e != null && e > s) {
+        val done = (now - s).coerceIn(0L, e - s)
+        LinearWavyProgressIndicator(
+            progress = { ((clockState.longValue - s).coerceIn(0L, e - s).toFloat() / (e - s)).coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(clock(done), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+            Text(clock(e - s), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+        }
+    } else if (s != null) {
+        Text("${clock(now - s)} elapsed", style = MaterialTheme.typography.labelLarge, color = cs.primary)
+    } else if (e != null && e > now) {
+        Text("${clock(e - now)} left", style = MaterialTheme.typography.labelLarge, color = cs.primary)
     }
 }

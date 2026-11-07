@@ -53,7 +53,8 @@
 
         <receiver
             android:name=".BootReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:process=":presence">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
@@ -74,6 +75,7 @@
         <service
             android:name=".PresenceTile"
             android:exported="true"
+            android:process=":presence"
             android:icon="@drawable/ic_presence"
             android:label="Discord presence"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
@@ -84,7 +86,8 @@
 
         <receiver
             android:name=".PresenceWidget"
-            android:exported="true">
+            android:exported="true"
+            android:process=":presence">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -95,7 +98,8 @@
 
         <receiver
             android:name=".ToggleReceiver"
-            android:exported="false" />
+            android:exported="false"
+            android:process=":presence" />
 
         <receiver
             android:name=".PackageChangeReceiver"
@@ -111,11 +115,13 @@
         <service
             android:name=".PresenceService"
             android:exported="false"
+            android:process=":presence"
             android:foregroundServiceType="dataSync" />
 
         <service
             android:name=".MediaListener"
             android:exported="true"
+            android:process=":presence"
             android:label="DPM"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>

@@ -22,6 +22,7 @@ import android.media.session.MediaController
 import android.media.session.MediaSession
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
+import android.service.notification.NotificationListenerService
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -44,6 +45,13 @@ class PresenceService : Service() {
     private var notifKey = ""
     private var fgStarted = false
 
+    private val controlReceiver = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) {
+            if (i.action == Procs.ACTION_SETTINGS) Store.reload()
+            kick()
+        }
+    }
+
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             kick()
@@ -56,19 +64,12 @@ class PresenceService : Service() {
 
     private val mediaCallback = object : MediaController.Callback() {
         override fun onPlaybackStateChanged(state: PlaybackState?) = kick()
-        override fun onMetadataChanged(metadata: MediaMetadata?) {
-            Dynamic.markMediaDirty()
-            kick()
-        }
-        override fun onSessionDestroyed() {
-            Dynamic.markMediaDirty()
-            kick()
-        }
+        override fun onMetadataChanged(metadata: MediaMetadata?) = kick()
+        override fun onSessionDestroyed() = kick()
     }
 
     private val sessionsListener = MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
         watchSessions(controllers?.toList() ?: emptyList())
-        Dynamic.markMediaDirty()
         kick()
     }
 
@@ -112,7 +113,7 @@ class PresenceService : Service() {
         }
 
         fun kick() {
-            kicks.trySend(Unit)
+            if (Procs.inService) kicks.trySend(Unit) else Procs.kick()
         }
     }
 
@@ -122,10 +123,23 @@ class PresenceService : Service() {
         super.onCreate()
         ContextCompat.registerReceiver(
             this,
+            controlReceiver,
+            IntentFilter().apply {
+                addAction(Procs.ACTION_KICK)
+                addAction(Procs.ACTION_SETTINGS)
+            },
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        ContextCompat.registerReceiver(
+            this,
             screenReceiver,
             IntentFilter(Intent.ACTION_SCREEN_ON),
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
+        try {
+            NotificationListenerService.requestRebind(ComponentName(this, MediaListener::class.java))
+        } catch (e: Exception) {
+        }
         try {
             val msm = getSystemService(MediaSessionManager::class.java)
             val listener = ComponentName(this, MediaListener::class.java)
@@ -206,9 +220,8 @@ class PresenceService : Service() {
     private fun tick() {
         if (Store.get(this, "only_online", "0") == "1") UserStatus.refresh(this)
         val gate = Logic.gate(this)
-        val preview = if (gate == null || Live.uiVisible) Logic.info(this) else null
-        if (Live.uiVisible) Live.publish(Live.Snapshot(preview, gate, Dynamic.found, Dynamic.winner))
-        val info = if (gate == null) preview else null
+        Live.heartbeat()
+        val info = if (gate == null) Logic.info(this) else null
         val arr = JSONArray()
         if (info != null) arr.put(Dynamic.toJson(this, info))
         val s = arr.toString()
@@ -309,6 +322,15 @@ class PresenceService : Service() {
 
     override fun onDestroy() {
         alive = false
+        Live.stopped()
+        try {
+            MediaListener.instance?.requestUnbind()
+        } catch (e: Exception) {
+        }
+        try {
+            unregisterReceiver(controlReceiver)
+        } catch (e: Exception) {
+        }
         try {
             unregisterReceiver(screenReceiver)
         } catch (e: Exception) {

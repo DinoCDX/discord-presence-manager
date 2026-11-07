@@ -15,6 +15,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
@@ -40,7 +41,7 @@ sealed class UpdateState {
 object Updater {
     const val REPO_URL = "https://github.com/DinoCDX/discord-presence-manager"
     private const val API = "https://api.github.com/repos/DinoCDX/discord-presence-manager/releases/latest"
-    private const val CHECK_EVERY_MS = 12 * 3_600_000L
+    private var openChecked = false
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val client = OkHttpClient.Builder()
@@ -56,6 +57,57 @@ object Updater {
 
     var latestNotes: String by mutableStateOf("")
         private set
+
+    class Release(val tag: String, val name: String, val date: String, val body: String)
+
+    var history: List<Release> by mutableStateOf(emptyList())
+        private set
+
+    var historyStatus: String by mutableStateOf("")
+        private set
+
+    @Volatile
+    private var historyBusy = false
+
+    private const val LIST_API = "https://api.github.com/repos/DinoCDX/discord-presence-manager/releases?per_page=30"
+
+    fun loadHistory() {
+        if (historyBusy || history.isNotEmpty()) return
+        historyBusy = true
+        historyStatus = "loading"
+        Thread {
+            try {
+                val req = Request.Builder()
+                    .url(LIST_API)
+                    .header("Accept", "application/vnd.github+json")
+                    .header("User-Agent", "DPM")
+                    .build()
+                client.newCall(req).execute().use { r ->
+                    if (!r.isSuccessful) {
+                        historyStatus = "failed"
+                        return@use
+                    }
+                    val arr = JSONArray(r.body?.string().orEmpty())
+                    history = (0 until arr.length())
+                        .map { arr.getJSONObject(it) }
+                        .filter { !it.optBoolean("draft") }
+                        .map { o ->
+                            Release(
+                                tag = o.optString("tag_name"),
+                                name = o.optString("name"),
+                                date = o.optString("published_at").take(10),
+                                body = o.optString("body").trim()
+                            )
+                        }
+                    historyStatus = ""
+                }
+            } catch (e: Exception) {
+                historyStatus = "failed"
+            } finally {
+                historyBusy = false
+            }
+        }.start()
+    }
 
     fun installedVersion(c: Context): String =
         try {
@@ -79,10 +131,11 @@ object Updater {
         return false
     }
 
+    /** Runs once per app launch. Also fetches the latest changelog. */
     fun autoCheck(c: Context) {
+        if (openChecked) return
+        openChecked = true
         if (Store.get(c, "upd_auto", "1") != "1") return
-        val last = Store.get(c, "upd_last", "0").toLongOrNull() ?: 0L
-        if (System.currentTimeMillis() - last < CHECK_EVERY_MS) return
         check(c)
     }
 

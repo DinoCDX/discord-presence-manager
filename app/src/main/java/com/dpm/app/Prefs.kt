@@ -29,14 +29,14 @@ object Presence {
     fun setMode(c: Context, m: String) = Store.put(c, "mode", m)
 
     fun running(c: Context): Boolean {
-        val r = Store.get(c, "running", "")
+        val r = Shared.get(c, "running", "")
         return if (r.isEmpty()) Store.get(c, "mode", "off") != "off" else r == "1"
     }
 
-    fun setRunning(c: Context, on: Boolean) = Store.put(c, "running", if (on) "1" else "0")
+    fun setRunning(c: Context, on: Boolean) = Shared.put(c, "running", if (on) "1" else "0")
 
     fun paused(c: Context): Boolean {
-        if (Store.get(c, "paused", "0") != "1") return false
+        if (Shared.get(c, "paused", "0") != "1") return false
         val until = pausedUntil(c)
         if (until > 0L && System.currentTimeMillis() >= until) {
             setPaused(c, false)
@@ -45,16 +45,15 @@ object Presence {
         return true
     }
 
-    fun pausedUntil(c: Context): Long = Store.get(c, "paused_until", "0").toLongOrNull() ?: 0L
+    fun pausedUntil(c: Context): Long = Shared.get(c, "paused_until", "0").toLongOrNull() ?: 0L
 
     fun setPaused(c: Context, p: Boolean) {
-        Store.put(c, "paused", if (p) "1" else "0")
-        Store.put(c, "paused_until", "0")
+        Shared.putAll(c, mapOf("paused" to (if (p) "1" else "0"), "paused_until" to "0"))
     }
 
     fun pauseFor(c: Context, ms: Long) {
-        Store.put(c, "paused", "1")
-        Store.put(c, "paused_until", if (ms > 0L) (System.currentTimeMillis() + ms).toString() else "0")
+        val until = if (ms > 0L) (System.currentTimeMillis() + ms).toString() else "0"
+        Shared.putAll(c, mapOf("paused" to "1", "paused_until" to until))
     }
 
     fun pauseLabel(c: Context): String {

@@ -120,7 +120,7 @@ object Art {
     }
 
     private fun loadExternal(c: Context) {
-        val raw = Store.get(c, EXT_KEY, "")
+        val raw = Shared.get(c, EXT_KEY, "")
         if (raw.isEmpty()) return
         val now = System.currentTimeMillis()
         try {
@@ -142,7 +142,7 @@ object Art {
         externalPaths.keys.retainAll(kept.map { it.key }.toSet())
         val o = JSONObject()
         kept.forEach { o.put(it.key, it.value) }
-        Store.put(c, EXT_KEY, o.toString())
+        Shared.put(c, EXT_KEY, o.toString())
     }
 
     fun external(c: Context, app: String, input: String): String? {

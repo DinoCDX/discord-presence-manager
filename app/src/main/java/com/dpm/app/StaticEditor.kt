@@ -52,13 +52,13 @@ import androidx.compose.ui.window.DialogProperties
 private const val LIMIT = 128
 
 @Composable
-fun StaticEditor(ui: UiState, now: Long) {
+fun StaticEditor(ui: UiState, nowState: androidx.compose.runtime.MutableLongState) {
     val cs = MaterialTheme.colorScheme
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             PresetsRow(ui, Modifier.weight(1f))
             Spacer(Modifier.width(8.dp))
-            SavedTag(ui, now)
+            SavedTagLive(ui, nowState)
         }
 
         TypeSegments(ui.sType) { ui.sType = it }
@@ -88,7 +88,7 @@ fun StaticEditor(ui: UiState, now: Long) {
                 color = cs.onSurfaceVariant
             )
         } else {
-            TimerEditor(ui, now)
+            TimerEditor(ui, nowState)
         }
 
         Text("Buttons", style = MaterialTheme.typography.titleSmall, color = cs.primary)
@@ -217,7 +217,8 @@ private fun ImagePick(label: String, file: String, onPicked: (String) -> Unit) {
 }
 
 @Composable
-private fun TimerEditor(ui: UiState, now: Long) {
+private fun TimerEditor(ui: UiState, nowState: androidx.compose.runtime.MutableLongState) {
+    val now = nowState.longValue
     val cs = MaterialTheme.colorScheme
     var picking by remember { mutableStateOf(false) }
     Text("Timer", style = MaterialTheme.typography.titleSmall, color = cs.primary)
@@ -346,3 +347,8 @@ private fun ResetRow(ui: UiState) {
     }
 }
 
+
+@Composable
+private fun SavedTagLive(ui: UiState, nowState: androidx.compose.runtime.MutableLongState) {
+    SavedTag(ui, nowState.longValue)
+}

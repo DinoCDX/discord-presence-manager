@@ -6,7 +6,7 @@
     <color name="w_on_variant">#FFC7C5D0</color>
     <color name="w_primary">#FFBEC2FF</color>
     <color name="w_on_primary">#FF14209A</color>
-    <color name="w_chip">#FF353438</color>
-    <color name="w_live">#FF7FD99B</color>
-    <color name="w_idle">#FF918F9A</color>
+    <color name="w_chip">#FF434559</color>
+    <color name="w_live">#FF23A55A</color>
+    <color name="w_idle">#FF8F9099</color>
 </resources>

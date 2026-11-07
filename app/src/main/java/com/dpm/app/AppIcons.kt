@@ -29,8 +29,7 @@ object AppIcons {
             val b = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
             val cv = Canvas(b)
             if (d is AdaptiveIconDrawable) {
-                val o = (px * 0.25f).toInt()
-                d.setBounds(-o, -o, px + o, px + o)
+                d.setBounds(0, 0, px, px)
             } else {
                 d.bounds = Rect(0, 0, px, px)
             }

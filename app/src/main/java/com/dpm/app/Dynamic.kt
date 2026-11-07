@@ -50,8 +50,7 @@ object Dynamic {
     private var lastLive: Info? = null
     private var lastLiveAt = 0L
     private var lastRawPos = Long.MIN_VALUE
-    private const val PLAY_URL = "https://raw.githubusercontent.com/DinoCDX/discord-presence-manager/main/docs/assets/play.png"
-    private const val PAUSE_URL = "https://raw.githubusercontent.com/DinoCDX/discord-presence-manager/main/docs/assets/pause.png"
+        private const val PAUSE_URL = "https://raw.githubusercontent.com/DinoCDX/discord-presence-manager/main/docs/assets/pause.png"
     private const val HOLD_MS = 8_000L
     private const val PAUSE_LIMIT_MS = 120_000L
     private var loggedKey = ""
@@ -94,27 +93,6 @@ object Dynamic {
     @Volatile
     var winner: String? = null
         private set
-
-    @Volatile
-    private var mediaVersion = 0
-    private val mdCache = HashMap<Boolean, MetaCache>()
-
-    private class MetaCache(val pkg: String, val version: Int, val at: Long, val md: MediaMetadata)
-
-    fun markMediaDirty() {
-        mediaVersion++
-    }
-
-    private fun metadataFor(ctl: MediaController, video: Boolean): MediaMetadata? {
-        val now = System.currentTimeMillis()
-        val hit = mdCache[video]
-        if (hit != null && hit.pkg == ctl.packageName && hit.version == mediaVersion && now - hit.at < 60_000L) {
-            return hit.md
-        }
-        val md = ctl.metadata ?: return null
-        mdCache[video] = MetaCache(ctl.packageName, mediaVersion, now, md)
-        return md
-    }
 
     fun current(c: Context): Info? {
         val t0 = System.nanoTime()
@@ -187,19 +165,19 @@ object Dynamic {
     }
 
     private fun stateIcon(c: Context, i: Info): Pair<String, String>? {
+        if (!i.paused) return null
         val app = Art.appId(c)
         if (!Art.validId(app)) return null
-        val mp = Art.externalCached(c, app, if (i.paused) PAUSE_URL else PLAY_URL) ?: return null
-        return mp to if (i.paused) "Paused" else "Playing"
+        val mp = Art.externalCached(c, app, PAUSE_URL) ?: return null
+        return mp to "Paused"
     }
 
     private fun addAssets(c: Context, o: JSONObject, i: Info) {
         val r = (if (i.pkg != null) Art.resolve(c, i) else Art.resolveStatic(c, i)) ?: return
         val assets = JSONObject().put("large_image", r.big)
         (i.largeText ?: i.album ?: i.details)?.let { assets.put("large_text", it) }
-        val state = if (i.pkg != null) stateIcon(c, i) else null
-        if (state != null) {
-            assets.put("small_image", state.first).put("small_text", state.second)
+        if (i.pkg != null) {
+            stateIcon(c, i)?.let { assets.put("small_image", it.first).put("small_text", it.second) }
         } else {
             r.small?.let { assets.put("small_image", it).put("small_text", i.smallText ?: i.name) }
         }
@@ -283,7 +261,9 @@ object Dynamic {
             val ctl = playing.firstOrNull { it.packageName == fg } ?: playing.firstOrNull()
                 ?: paused.firstOrNull { it.packageName == fg } ?: paused.firstOrNull()
                 ?: return grace(video)
-            val md = metadataFor(ctl, video) ?: return null
+            // Read fresh every time. A cache here went stale in the app process,
+            // which never gets the service's metadata callbacks, so titles lagged.
+            val md = ctl.metadata ?: return null
             val title = text(md, MediaMetadata.METADATA_KEY_TITLE, MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
                 ?: return null
             val artist = text(

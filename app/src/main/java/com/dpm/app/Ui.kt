@@ -1,12 +1,22 @@
 package com.dpm.app
 
+import kotlinx.coroutines.flow.MutableSharedFlow
+
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import android.widget.Toast
 
-fun Context.toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+/** Messages go to the in-app snackbar while the main screen is listening, otherwise to a system toast. */
+object Notes {
+    val flow = MutableSharedFlow<String>(extraBufferCapacity = 8)
+}
+
+fun Context.toast(message: String) {
+    if (Notes.flow.subscriptionCount.value > 0 && Notes.flow.tryEmit(message)) return
+    Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+}
 
 fun Context.openNotificationSettings() {
     startActivity(

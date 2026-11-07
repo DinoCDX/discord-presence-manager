@@ -4,72 +4,92 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>DPM</title>
-<meta name="description" content="Show what you&#x27;re doing on your phone as your Discord activity.">
+<meta name="description" content="Show what you're doing on your phone as your Discord activity.">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#4752c4">
-<meta property="og:title" content="DPM">
-<meta property="og:description" content="Show what you&#x27;re doing on your phone as your Discord activity.">
-<meta property="og:type" content="website">
-<meta property="og:image" content="https://dinocdx.github.io/discord-presence-manager/assets/icon-512.png">
-<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<link rel="icon" href="assets/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/home.css">
 </head>
 <body>
-<a class="skip" href="#content">Skip to content</a>
-<div class="progress" aria-hidden="true"><span></span></div>
-<header class="site"><div class="bar">
-<a class="brand" href="index.html"><img src="assets/favicon.png" alt="" width="32" height="32">DPM</a>
-<nav class="top" aria-label="Pages"><a href="index.html" aria-current="page">Home</a><a href="getting-started.html">Setup</a><a href="features.html">Features</a><a href="permissions.html">Permissions</a><a href="troubleshooting.html">Troubleshooting</a><a href="build.html">Build</a></nav>
-</div></header>
-<main id="content">
+<div class="wrap">
+<header class="top">
+  <a class="brand" href="#top"><span class="mark">D</span>DPM</a>
+  <nav class="links" aria-label="On this page">
+    <a href="#in-app">In the app</a><a href="#features">Features</a><a href="#start">Get started</a><a href="#requirements">Requirements</a>
+  </nav>
+</header>
 
-<section class="hero">
-<div class="hero-text">
-<p class="eyebrow">Discord Presence Manager</p>
-<h1>Show what you're up to on Discord, from your phone</h1>
-<p class="lead">DPM turns the music you're playing, the videos you're watching and the games and apps you have open into your Discord activity.</p>
-<div class="btn-row">
-<a class="btn" href="https://github.com/DinoCDX/discord-presence-manager/releases/latest">Download the APK</a>
-<a class="btn tonal" href="getting-started.html">Get set up</a>
-</div>
-<div class="chips"><span class="chip tonal">Android 10+</span><span class="chip tonal">Open source</span></div>
-</div>
-<div class="hero-art" aria-hidden="true">
-<div class="blob"><span class="badge-xl" aria-hidden="true"><svg viewBox="0 0 200 200"><path d="M196.6 100.0 L196.0 103.8 L194.4 107.4 L192.1 110.9 L189.5 114.2 L187.0 117.3 L185.2 120.5 L184.2 123.7 L184.0 127.3 L184.4 131.1 L185.0 135.2 L185.4 139.4 L185.3 143.5 L184.2 147.2 L182.2 150.4 L179.2 152.9 L175.6 154.9 L171.7 156.5 L167.9 158.0 L164.5 159.7 L161.8 161.8 L159.7 164.5 L158.0 167.9 L156.5 171.7 L154.9 175.6 L152.9 179.2 L150.4 182.2 L147.2 184.2 L143.5 185.3 L139.4 185.4 L135.2 185.0 L131.1 184.4 L127.3 184.0 L123.7 184.2 L120.5 185.2 L117.3 187.0 L114.2 189.5 L110.9 192.1 L107.4 194.4 L103.8 196.0 L100.0 196.6 L96.2 196.0 L92.6 194.4 L89.1 192.1 L85.8 189.5 L82.7 187.0 L79.5 185.2 L76.3 184.2 L72.7 184.0 L68.9 184.4 L64.8 185.0 L60.6 185.4 L56.5 185.3 L52.8 184.2 L49.6 182.2 L47.1 179.2 L45.1 175.6 L43.5 171.7 L42.0 167.9 L40.3 164.5 L38.2 161.8 L35.5 159.7 L32.1 158.0 L28.3 156.5 L24.4 154.9 L20.8 152.9 L17.8 150.4 L15.8 147.2 L14.7 143.5 L14.6 139.4 L15.0 135.2 L15.6 131.1 L16.0 127.3 L15.8 123.7 L14.8 120.5 L13.0 117.3 L10.5 114.2 L7.9 110.9 L5.6 107.4 L4.0 103.8 L3.4 100.0 L4.0 96.2 L5.6 92.6 L7.9 89.1 L10.5 85.8 L13.0 82.7 L14.8 79.5 L15.8 76.3 L16.0 72.7 L15.6 68.9 L15.0 64.8 L14.6 60.6 L14.7 56.5 L15.8 52.8 L17.8 49.6 L20.8 47.1 L24.4 45.1 L28.3 43.5 L32.1 42.0 L35.5 40.3 L38.2 38.2 L40.3 35.5 L42.0 32.1 L43.5 28.3 L45.1 24.4 L47.1 20.8 L49.6 17.8 L52.8 15.8 L56.5 14.7 L60.6 14.6 L64.8 15.0 L68.9 15.6 L72.7 16.0 L76.3 15.8 L79.5 14.8 L82.7 13.0 L85.8 10.5 L89.1 7.9 L92.6 5.6 L96.2 4.0 L100.0 3.4 L103.8 4.0 L107.4 5.6 L110.9 7.9 L114.2 10.5 L117.3 13.0 L120.5 14.8 L123.7 15.8 L127.3 16.0 L131.1 15.6 L135.2 15.0 L139.4 14.6 L143.5 14.7 L147.2 15.8 L150.4 17.8 L152.9 20.8 L154.9 24.4 L156.5 28.3 L158.0 32.1 L159.7 35.5 L161.8 38.2 L164.5 40.3 L167.9 42.0 L171.7 43.5 L175.6 45.1 L179.2 47.1 L182.2 49.6 L184.2 52.8 L185.3 56.5 L185.4 60.6 L185.0 64.8 L184.4 68.9 L184.0 72.7 L184.2 76.3 L185.2 79.5 L187.0 82.7 L189.5 85.8 L192.1 89.1 L194.4 92.6 L196.0 96.2 Z"/></svg></span><div class="mark"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 9.6H21.6A14.4 14.4 0 0 1 21.6 38.4H12Z" fill="none" stroke="currentColor" stroke-width="8.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="24" r="4.4" fill="currentColor"/></svg></div></div>
-</div>
+<section class="hero" id="top">
+  <div>
+    <p class="eyebrow">Discord Presence Manager</p>
+    <h1>Show what you're up to on Discord, from your phone</h1>
+    <p class="lead">DPM turns the music you're playing, the videos you're watching and the games and apps you have open into your Discord activity.</p>
+    <div class="btns"><a class="btn solid" href="https://github.com/DinoCDX/discord-presence-manager/releases/latest">Download the APK</a><a class="btn" href="#start">Get set up</a></div>
+    <div class="chips-row"><span class="chip">Android 10+</span><span class="chip">Open source</span></div>
+  </div>
+  <div class="hero-art" aria-hidden="true">
+    <svg class="big spin" viewBox="0 0 200 200"><path fill="var(--shape)" d="M200.0 100.0C200.0 106.5 199.3 113.1 198.1 119.5C196.8 125.9 194.9 132.3 192.4 138.3C189.9 144.3 186.8 150.1 183.1 155.6C179.5 161.0 175.3 166.1 170.7 170.7C166.1 175.3 161.0 179.5 155.6 183.1C150.1 186.8 144.3 189.9 138.3 192.4C132.3 194.9 125.9 196.8 119.5 198.1C113.1 199.3 106.5 200.0 100.0 200.0C93.5 200.0 86.9 199.3 80.5 198.1C74.1 196.8 67.7 194.9 61.7 192.4C55.7 189.9 49.9 186.8 44.4 183.1C39.0 179.5 33.9 175.3 29.3 170.7C24.7 166.1 20.5 161.0 16.9 155.6C13.2 150.1 10.1 144.3 7.6 138.3C5.1 132.3 3.2 125.9 1.9 119.5C0.7 113.1 0.0 106.5 0.0 100.0C0.0 93.5 0.7 86.9 1.9 80.5C3.2 74.1 5.1 67.7 7.6 61.7C10.1 55.7 13.2 49.9 16.9 44.4C20.5 39.0 24.7 33.9 29.3 29.3C33.9 24.7 39.0 20.5 44.4 16.9C49.9 13.2 55.7 10.1 61.7 7.6C67.7 5.1 74.1 3.2 80.5 1.9C86.9 0.7 93.5 0.0 100.0 0.0C106.5 -0.0 113.1 0.7 119.5 1.9C125.9 3.2 132.3 5.1 138.3 7.6C144.3 10.1 150.1 13.2 155.6 16.9C161.0 20.5 166.1 24.7 170.7 29.3C175.3 33.9 179.5 39.0 183.1 44.4C186.8 49.9 189.9 55.7 192.4 61.7C194.9 67.7 196.8 74.1 198.1 80.5C199.3 86.9 200.0 93.5 200.0 100.0Z"><animate attributeName="d" dur="16s" repeatCount="indefinite" values="M200.0 100.0C200.0 106.5 199.3 113.1 198.1 119.5C196.8 125.9 194.9 132.3 192.4 138.3C189.9 144.3 186.8 150.1 183.1 155.6C179.5 161.0 175.3 166.1 170.7 170.7C166.1 175.3 161.0 179.5 155.6 183.1C150.1 186.8 144.3 189.9 138.3 192.4C132.3 194.9 125.9 196.8 119.5 198.1C113.1 199.3 106.5 200.0 100.0 200.0C93.5 200.0 86.9 199.3 80.5 198.1C74.1 196.8 67.7 194.9 61.7 192.4C55.7 189.9 49.9 186.8 44.4 183.1C39.0 179.5 33.9 175.3 29.3 170.7C24.7 166.1 20.5 161.0 16.9 155.6C13.2 150.1 10.1 144.3 7.6 138.3C5.1 132.3 3.2 125.9 1.9 119.5C0.7 113.1 0.0 106.5 0.0 100.0C0.0 93.5 0.7 86.9 1.9 80.5C3.2 74.1 5.1 67.7 7.6 61.7C10.1 55.7 13.2 49.9 16.9 44.4C20.5 39.0 24.7 33.9 29.3 29.3C33.9 24.7 39.0 20.5 44.4 16.9C49.9 13.2 55.7 10.1 61.7 7.6C67.7 5.1 74.1 3.2 80.5 1.9C86.9 0.7 93.5 0.0 100.0 0.0C106.5 -0.0 113.1 0.7 119.5 1.9C125.9 3.2 132.3 5.1 138.3 7.6C144.3 10.1 150.1 13.2 155.6 16.9C161.0 20.5 166.1 24.7 170.7 29.3C175.3 33.9 179.5 39.0 183.1 44.4C186.8 49.9 189.9 55.7 192.4 61.7C194.9 67.7 196.8 74.1 198.1 80.5C199.3 86.9 200.0 93.5 200.0 100.0Z;M209.0 100.0C209.0 106.9 207.1 114.4 204.3 120.8C201.6 127.1 196.8 133.1 192.4 138.3C188.0 143.5 182.5 147.7 177.9 152.0C173.2 156.4 168.7 160.0 164.3 164.3C160.0 168.7 156.4 173.2 152.0 177.9C147.7 182.5 143.5 188.0 138.3 192.4C133.1 196.8 127.1 201.6 120.8 204.3C114.4 207.1 106.9 209.0 100.0 209.0C93.1 209.0 85.6 207.1 79.2 204.3C72.9 201.6 66.9 196.8 61.7 192.4C56.5 188.0 52.3 182.5 48.0 177.9C43.6 173.2 40.0 168.7 35.7 164.3C31.3 160.0 26.8 156.4 22.1 152.0C17.5 147.7 12.0 143.5 7.6 138.3C3.2 133.1 -1.6 127.1 -4.3 120.8C-7.1 114.4 -9.0 106.9 -9.0 100.0C-9.0 93.1 -7.1 85.6 -4.3 79.2C-1.6 72.9 3.2 66.9 7.6 61.7C12.0 56.5 17.5 52.3 22.1 48.0C26.8 43.6 31.3 40.0 35.7 35.7C40.0 31.3 43.6 26.8 48.0 22.1C52.3 17.5 56.5 12.0 61.7 7.6C66.9 3.2 72.9 -1.6 79.2 -4.3C85.6 -7.1 93.1 -9.0 100.0 -9.0C106.9 -9.0 114.4 -7.1 120.8 -4.3C127.1 -1.6 133.1 3.2 138.3 7.6C143.5 12.0 147.7 17.5 152.0 22.1C156.4 26.8 160.0 31.3 164.3 35.7C168.7 40.0 173.2 43.6 177.9 48.0C182.5 52.3 188.0 56.5 192.4 61.7C196.8 66.9 201.6 72.9 204.3 79.2C207.1 85.6 209.0 93.1 209.0 100.0Z;M207.0 100.0C207.0 106.7 203.9 114.0 200.7 120.0C197.5 126.1 191.6 131.1 187.8 136.4C184.0 141.7 180.6 146.2 177.8 152.0C174.9 157.7 173.8 164.6 170.7 170.7C167.6 176.8 164.2 184.1 159.1 188.5C154.1 192.9 146.9 195.8 140.2 197.0C133.5 198.1 125.7 196.1 119.0 195.5C112.3 194.8 106.3 193.0 100.0 193.0C93.7 193.0 87.7 194.8 81.0 195.5C74.3 196.1 66.5 198.1 59.8 197.0C53.1 195.8 45.9 192.9 40.9 188.5C35.8 184.1 32.4 176.8 29.3 170.7C26.2 164.6 25.1 157.7 22.2 152.0C19.4 146.2 16.0 141.7 12.2 136.4C8.4 131.1 2.5 126.1 -0.7 120.0C-3.9 114.0 -7.0 106.7 -7.0 100.0C-7.0 93.3 -3.9 86.0 -0.7 80.0C2.5 73.9 8.4 68.9 12.2 63.6C16.0 58.3 19.4 53.8 22.2 48.0C25.1 42.3 26.2 35.4 29.3 29.3C32.4 23.2 35.8 15.9 40.9 11.5C45.9 7.1 53.1 4.2 59.8 3.0C66.5 1.9 74.3 3.9 81.0 4.5C87.7 5.2 93.7 7.0 100.0 7.0C106.3 7.0 112.3 5.2 119.0 4.5C125.7 3.9 133.5 1.9 140.2 3.0C146.9 4.2 154.1 7.1 159.1 11.5C164.2 15.9 167.6 23.2 170.7 29.3C173.8 35.4 174.9 42.3 177.8 48.0C180.6 53.8 184.0 58.3 187.8 63.6C191.6 68.9 197.5 73.9 200.7 80.0C203.9 86.0 207.0 93.3 207.0 100.0Z;M206.0 100.0C206.0 106.5 201.3 113.5 198.1 119.5C194.9 125.5 189.3 130.0 186.8 136.0C184.4 142.0 185.1 149.1 183.1 155.6C181.2 162.1 179.6 170.4 175.0 175.0C170.4 179.6 162.1 181.2 155.6 183.1C149.1 185.1 142.0 184.4 136.0 186.8C130.0 189.3 125.5 194.9 119.5 198.1C113.5 201.3 106.5 206.0 100.0 206.0C93.5 206.0 86.5 201.3 80.5 198.1C74.5 194.9 70.0 189.3 64.0 186.8C58.0 184.4 50.9 185.1 44.4 183.1C37.9 181.2 29.6 179.6 25.0 175.0C20.4 170.4 18.8 162.1 16.9 155.6C14.9 149.1 15.6 142.0 13.2 136.0C10.7 130.0 5.1 125.5 1.9 119.5C-1.3 113.5 -6.0 106.5 -6.0 100.0C-6.0 93.5 -1.3 86.5 1.9 80.5C5.1 74.5 10.7 70.0 13.2 64.0C15.6 58.0 14.9 50.9 16.9 44.4C18.8 37.9 20.4 29.6 25.0 25.0C29.6 20.4 37.9 18.8 44.4 16.9C50.9 14.9 58.0 15.6 64.0 13.2C70.0 10.7 74.5 5.1 80.5 1.9C86.5 -1.3 93.5 -6.0 100.0 -6.0C106.5 -6.0 113.5 -1.3 119.5 1.9C125.5 5.1 130.0 10.7 136.0 13.2C142.0 15.6 149.1 14.9 155.6 16.9C162.1 18.8 170.4 20.4 175.0 25.0C179.6 29.6 181.2 37.9 183.1 44.4C185.1 50.9 184.4 58.0 186.8 64.0C189.3 70.0 194.9 74.5 198.1 80.5C201.3 86.5 206.0 93.5 206.0 100.0Z;M200.0 100.0C200.0 106.5 199.3 113.1 198.1 119.5C196.8 125.9 194.9 132.3 192.4 138.3C189.9 144.3 186.8 150.1 183.1 155.6C179.5 161.0 175.3 166.1 170.7 170.7C166.1 175.3 161.0 179.5 155.6 183.1C150.1 186.8 144.3 189.9 138.3 192.4C132.3 194.9 125.9 196.8 119.5 198.1C113.1 199.3 106.5 200.0 100.0 200.0C93.5 200.0 86.9 199.3 80.5 198.1C74.1 196.8 67.7 194.9 61.7 192.4C55.7 189.9 49.9 186.8 44.4 183.1C39.0 179.5 33.9 175.3 29.3 170.7C24.7 166.1 20.5 161.0 16.9 155.6C13.2 150.1 10.1 144.3 7.6 138.3C5.1 132.3 3.2 125.9 1.9 119.5C0.7 113.1 0.0 106.5 0.0 100.0C0.0 93.5 0.7 86.9 1.9 80.5C3.2 74.1 5.1 67.7 7.6 61.7C10.1 55.7 13.2 49.9 16.9 44.4C20.5 39.0 24.7 33.9 29.3 29.3C33.9 24.7 39.0 20.5 44.4 16.9C49.9 13.2 55.7 10.1 61.7 7.6C67.7 5.1 74.1 3.2 80.5 1.9C86.9 0.7 93.5 0.0 100.0 0.0C106.5 -0.0 113.1 0.7 119.5 1.9C125.9 3.2 132.3 5.1 138.3 7.6C144.3 10.1 150.1 13.2 155.6 16.9C161.0 20.5 166.1 24.7 170.7 29.3C175.3 33.9 179.5 39.0 183.1 44.4C186.8 49.9 189.9 55.7 192.4 61.7C194.9 67.7 196.8 74.1 198.1 80.5C199.3 86.9 200.0 93.5 200.0 100.0Z"/></path></svg>
+    <div class="badge float"><span>D</span></div>
+  </div>
 </section>
 
-<h2 class="section-title">What it does</h2>
-<div class="grid">
-<div class="card"><h3>Follows along</h3><p>Whatever's playing comes first. If nothing is, it shows the game or app you're in.</p></div>
-<div class="card"><h3>Says it your way</h3><p>Write your own status, or give any single app its own text.</p></div>
-<div class="card"><h3>Keeps office hours</h3><p>Choose the days and times it's allowed to show, or only share while you're online.</p></div>
-<div class="card"><h3>More than one account</h3><p>Sign in with Discord and switch between them whenever you like.</p></div>
-<div class="card"><h3>Updates in the app</h3><p>It looks for new releases on GitHub and lets you install them without leaving DPM.</p></div>
-<div class="card"><h3>Material 3 Expressive</h3><p>Bouncy, rounded and in your wallpaper colors, with a themed icon too.</p></div>
+<div class="marquee" aria-hidden="true"><div class="marquee-track"><span>Music</span><i class="ti ti-circle-filled"></i><span>Videos</span><i class="ti ti-circle-filled"></i><span>Games</span><i class="ti ti-circle-filled"></i><span>Apps</span><i class="ti ti-circle-filled"></i><span>Your own status</span><i class="ti ti-circle-filled"></i><span>Schedules</span><i class="ti ti-circle-filled"></i><span>Multiple accounts</span><i class="ti ti-circle-filled"></i><span>Wallpaper colors</span><i class="ti ti-circle-filled"></i><span>Music</span><i class="ti ti-circle-filled"></i><span>Videos</span><i class="ti ti-circle-filled"></i><span>Games</span><i class="ti ti-circle-filled"></i><span>Apps</span><i class="ti ti-circle-filled"></i><span>Your own status</span><i class="ti ti-circle-filled"></i><span>Schedules</span><i class="ti ti-circle-filled"></i><span>Multiple accounts</span><i class="ti ti-circle-filled"></i><span>Wallpaper colors</span><i class="ti ti-circle-filled"></i></div></div>
+
+<section class="section" id="in-app">
+  <h2 class="reveal">In the app</h2>
+  <p class="muted reveal" style="--d:80ms">The Presence tab, as it looks on a phone.</p>
+</section>
+<figure class="shot reveal"><div class="shot-frame"><img src="assets/screenshots/presence.jpg" width="320" height="628" alt="The Presence tab. Share my presence is on, showing Live on Discord, the Preview card with the song playing and the Dynamic and Static source switch." loading="lazy"></div><figcaption>The Presence tab.</figcaption></figure>
+
+<section class="section" id="features">
+  <h2 class="reveal">Features and benefits</h2>
+</section>
+<section class="grid"><article class="tile reveal"><div class="ticon"><svg viewBox="0 0 200 200" aria-hidden="true"><path fill="var(--shape)" d="M209.0 100.0C209.0 106.9 207.1 114.4 204.3 120.8C201.6 127.1 196.8 133.1 192.4 138.3C188.0 143.5 182.5 147.7 177.9 152.0C173.2 156.4 168.7 160.0 164.3 164.3C160.0 168.7 156.4 173.2 152.0 177.9C147.7 182.5 143.5 188.0 138.3 192.4C133.1 196.8 127.1 201.6 120.8 204.3C114.4 207.1 106.9 209.0 100.0 209.0C93.1 209.0 85.6 207.1 79.2 204.3C72.9 201.6 66.9 196.8 61.7 192.4C56.5 188.0 52.3 182.5 48.0 177.9C43.6 173.2 40.0 168.7 35.7 164.3C31.3 160.0 26.8 156.4 22.1 152.0C17.5 147.7 12.0 143.5 7.6 138.3C3.2 133.1 -1.6 127.1 -4.3 120.8C-7.1 114.4 -9.0 106.9 -9.0 100.0C-9.0 93.1 -7.1 85.6 -4.3 79.2C-1.6 72.9 3.2 66.9 7.6 61.7C12.0 56.5 17.5 52.3 22.1 48.0C26.8 43.6 31.3 40.0 35.7 35.7C40.0 31.3 43.6 26.8 48.0 22.1C52.3 17.5 56.5 12.0 61.7 7.6C66.9 3.2 72.9 -1.6 79.2 -4.3C85.6 -7.1 93.1 -9.0 100.0 -9.0C106.9 -9.0 114.4 -7.1 120.8 -4.3C127.1 -1.6 133.1 3.2 138.3 7.6C143.5 12.0 147.7 17.5 152.0 22.1C156.4 26.8 160.0 31.3 164.3 35.7C168.7 40.0 173.2 43.6 177.9 48.0C182.5 52.3 188.0 56.5 192.4 61.7C196.8 66.9 201.6 72.9 204.3 79.2C207.1 85.6 209.0 93.1 209.0 100.0Z"/></svg><i class="ti ti-music" aria-hidden="true"></i></div><h3>Follows along</h3><p>Whatever's playing comes first. If nothing is, it shows the game or app you're in.</p></article><article class="tile reveal"><div class="ticon"><svg viewBox="0 0 200 200" aria-hidden="true"><path fill="var(--shape)" d="M206.0 100.0C206.0 106.5 201.3 113.5 198.1 119.5C194.9 125.5 189.3 130.0 186.8 136.0C184.4 142.0 185.1 149.1 183.1 155.6C181.2 162.1 179.6 170.4 175.0 175.0C170.4 179.6 162.1 181.2 155.6 183.1C149.1 185.1 142.0 184.4 136.0 186.8C130.0 189.3 125.5 194.9 119.5 198.1C113.5 201.3 106.5 206.0 100.0 206.0C93.5 206.0 86.5 201.3 80.5 198.1C74.5 194.9 70.0 189.3 64.0 186.8C58.0 184.4 50.9 185.1 44.4 183.1C37.9 181.2 29.6 179.6 25.0 175.0C20.4 170.4 18.8 162.1 16.9 155.6C14.9 149.1 15.6 142.0 13.2 136.0C10.7 130.0 5.1 125.5 1.9 119.5C-1.3 113.5 -6.0 106.5 -6.0 100.0C-6.0 93.5 -1.3 86.5 1.9 80.5C5.1 74.5 10.7 70.0 13.2 64.0C15.6 58.0 14.9 50.9 16.9 44.4C18.8 37.9 20.4 29.6 25.0 25.0C29.6 20.4 37.9 18.8 44.4 16.9C50.9 14.9 58.0 15.6 64.0 13.2C70.0 10.7 74.5 5.1 80.5 1.9C86.5 -1.3 93.5 -6.0 100.0 -6.0C106.5 -6.0 113.5 -1.3 119.5 1.9C125.5 5.1 130.0 10.7 136.0 13.2C142.0 15.6 149.1 14.9 155.6 16.9C162.1 18.8 170.4 20.4 175.0 25.0C179.6 29.6 181.2 37.9 183.1 44.4C185.1 50.9 184.4 58.0 186.8 64.0C189.3 70.0 194.9 74.5 198.1 80.5C201.3 86.5 206.0 93.5 206.0 100.0Z"/></svg><i class="ti ti-message-circle" aria-hidden="true"></i></div><h3>Says it your way</h3><p>Write your own status, or give any single app its own text.</p></article><article class="tile reveal"><div class="ticon"><svg viewBox="0 0 200 200" aria-hidden="true"><path fill="var(--shape)" d="M207.0 100.0C207.0 106.7 203.9 114.0 200.7 120.0C197.5 126.1 191.6 131.1 187.8 136.4C184.0 141.7 180.6 146.2 177.8 152.0C174.9 157.7 173.8 164.6 170.7 170.7C167.6 176.8 164.2 184.1 159.1 188.5C154.1 192.9 146.9 195.8 140.2 197.0C133.5 198.1 125.7 196.1 119.0 195.5C112.3 194.8 106.3 193.0 100.0 193.0C93.7 193.0 87.7 194.8 81.0 195.5C74.3 196.1 66.5 198.1 59.8 197.0C53.1 195.8 45.9 192.9 40.9 188.5C35.8 184.1 32.4 176.8 29.3 170.7C26.2 164.6 25.1 157.7 22.2 152.0C19.4 146.2 16.0 141.7 12.2 136.4C8.4 131.1 2.5 126.1 -0.7 120.0C-3.9 114.0 -7.0 106.7 -7.0 100.0C-7.0 93.3 -3.9 86.0 -0.7 80.0C2.5 73.9 8.4 68.9 12.2 63.6C16.0 58.3 19.4 53.8 22.2 48.0C25.1 42.3 26.2 35.4 29.3 29.3C32.4 23.2 35.8 15.9 40.9 11.5C45.9 7.1 53.1 4.2 59.8 3.0C66.5 1.9 74.3 3.9 81.0 4.5C87.7 5.2 93.7 7.0 100.0 7.0C106.3 7.0 112.3 5.2 119.0 4.5C125.7 3.9 133.5 1.9 140.2 3.0C146.9 4.2 154.1 7.1 159.1 11.5C164.2 15.9 167.6 23.2 170.7 29.3C173.8 35.4 174.9 42.3 177.8 48.0C180.6 53.8 184.0 58.3 187.8 63.6C191.6 68.9 197.5 73.9 200.7 80.0C203.9 86.0 207.0 93.3 207.0 100.0Z"/></svg><i class="ti ti-calendar-clock" aria-hidden="true"></i></div><h3>Keeps office hours</h3><p>Choose the days and times it's allowed to show, or only share while you're online.</p></article><article class="tile reveal"><div class="ticon"><svg viewBox="0 0 200 200" aria-hidden="true"><path fill="var(--shape)" d="M206.0 100.0C206.0 106.5 201.3 113.5 198.1 119.5C194.9 125.5 189.3 130.0 186.8 136.0C184.4 142.0 185.1 149.1 183.1 155.6C181.2 162.1 179.6 170.4 175.0 175.0C170.4 179.6 162.1 181.2 155.6 183.1C149.1 185.1 142.0 184.4 136.0 186.8C130.0 189.3 125.5 194.9 119.5 198.1C113.5 201.3 106.5 206.0 100.0 206.0C93.5 206.0 86.5 201.3 80.5 198.1C74.5 194.9 70.0 189.3 64.0 186.8C58.0 184.4 50.9 185.1 44.4 183.1C37.9 181.2 29.6 179.6 25.0 175.0C20.4 170.4 18.8 162.1 16.9 155.6C14.9 149.1 15.6 142.0 13.2 136.0C10.7 130.0 5.1 125.5 1.9 119.5C-1.3 113.5 -6.0 106.5 -6.0 100.0C-6.0 93.5 -1.3 86.5 1.9 80.5C5.1 74.5 10.7 70.0 13.2 64.0C15.6 58.0 14.9 50.9 16.9 44.4C18.8 37.9 20.4 29.6 25.0 25.0C29.6 20.4 37.9 18.8 44.4 16.9C50.9 14.9 58.0 15.6 64.0 13.2C70.0 10.7 74.5 5.1 80.5 1.9C86.5 -1.3 93.5 -6.0 100.0 -6.0C106.5 -6.0 113.5 -1.3 119.5 1.9C125.5 5.1 130.0 10.7 136.0 13.2C142.0 15.6 149.1 14.9 155.6 16.9C162.1 18.8 170.4 20.4 175.0 25.0C179.6 29.6 181.2 37.9 183.1 44.4C185.1 50.9 184.4 58.0 186.8 64.0C189.3 70.0 194.9 74.5 198.1 80.5C201.3 86.5 206.0 93.5 206.0 100.0Z"/></svg><i class="ti ti-palette" aria-hidden="true"></i></div><h3>Material 3 Expressive</h3><p>Bouncy, rounded and in your wallpaper colors, with a themed icon too.</p></article></section>
+
+<section class="section" id="start">
+  <h2 class="reveal">Get started</h2>
+  <ol class="steps reveal">
+    <li><div><h3>Download the APK</h3><p>Get it from the latest release and open it.</p></div></li>
+    <li><div><h3>Log in with Discord</h3><p>You approve DPM on Discord's own login page.</p></div></li>
+    <li><div><h3>Allow the permissions you're comfortable with</h3><p>Every permission can be skipped and changed later.</p></div></li>
+    <li><div><h3>Switch on Share my presence</h3><p>Then choose which apps can show up on the Apps tab.</p></div></li>
+  </ol>
+</section>
+
+<section class="section" id="requirements">
+  <h2 class="reveal">Requirements</h2>
+  <ul class="reqs reveal">
+    <li><span>Android</span><span>10 or newer</span></li>
+    <li><span>Wallpaper colors</span><span>Android 12 or newer</span></li>
+    <li><span>Themed icon</span><span>Android 13 or newer</span></li>
+  </ul>
+</section>
+
+<section class="free reveal">
+  <div>
+    <h2>Free and open source</h2>
+    <p class="muted">Build it yourself or grab the latest release.</p>
+  </div>
+  <div class="btns"><a class="btn solid" href="https://github.com/DinoCDX/discord-presence-manager/releases/latest">Latest release</a><a class="btn" href="https://github.com/DinoCDX/discord-presence-manager">Source on GitHub</a></div>
+</section>
 </div>
 
-<h2 class="section-title">In the app</h2>
-<div class="shots"><figure class="shot"><img src="assets/screenshots/presence.png" alt="Presence preview card" loading="lazy"><figcaption>The preview on the Presence tab.</figcaption></figure><figure class="shot"><img src="assets/screenshots/apps.png" alt="Apps tab" loading="lazy"><figcaption>Choose which apps can show up.</figcaption></figure></div>
-
-<h2 class="section-title">Where to start</h2>
-<div class="grid three">
-<a class="card link" href="getting-started.html"><span class="card-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="currentColor"/></svg></span><h3>Setup</h3><p>Install, log in and start sharing in about five minutes.</p></a>
-<a class="card link" href="features.html"><span class="card-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 5H11A7 7 0 0 1 11 19H6.5Z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="11.5" cy="12" r="2.2" fill="currentColor"/></svg></span><h3>Features</h3><p>Dynamic and static modes, per-app control, schedules and accounts.</p></a>
-<a class="card link" href="troubleshooting.html"><span class="card-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z" fill="currentColor"/></svg></span><h3>Troubleshooting</h3><p>Fixes for presence that won't show, drops out or won't update.</p></a>
-</div>
-
-<p class="note">You'll need Android 10 or newer. Wallpaper colors need Android 12, and the themed icon needs Android 13.</p>
-
-</main>
-<nav class="bottom" aria-label="Pages"><a href="index.html" class="tab" aria-current="page"><span class="ind"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="currentColor"/></svg></span><span class="lbl">Home</span></a><a href="getting-started.html" class="tab"><span class="ind"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="currentColor"/></svg></span><span class="lbl">Setup</span></a><a href="features.html" class="tab"><span class="ind"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 5H11A7 7 0 0 1 11 19H6.5Z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="11.5" cy="12" r="2.2" fill="currentColor"/></svg></span><span class="lbl">Features</span></a><a href="troubleshooting.html" class="tab"><span class="ind"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z" fill="currentColor"/></svg></span><span class="lbl">Help</span></a><details class="more tab"><summary><span class="ind"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" fill="currentColor"/></svg></span><span class="lbl">More</span></summary><div class="sheet"><a href="permissions.html">Permissions</a><a href="build.html">Build</a></div></details></nav>
-<footer class="site"><div class="bar">
-<span>DPM (Discord Presence Manager) isn't affiliated with Discord.</span>
-<span class="links"><a href="https://github.com/DinoCDX/discord-presence-manager/releases/latest">Latest release</a><a href="https://github.com/DinoCDX/discord-presence-manager">Source on GitHub</a></span>
+<footer><div class="wrap foot-grid">
+  <div>
+    <a class="brand" href="#top"><span class="mark">D</span>DPM</a>
+    <p class="legal">Released under the MIT License. DPM (Discord Presence Manager) isn't affiliated with Discord.</p>
+  </div>
+  <nav class="fcol" aria-label="On this page">
+    <h4>On this page</h4>
+    <a href="#in-app">In the app</a><a href="#features">Features</a><a href="#start">Get started</a><a href="#requirements">Requirements</a>
+  </nav>
+  <nav class="fcol" aria-label="Project">
+    <h4>Project</h4>
+    <a href="https://github.com/DinoCDX/discord-presence-manager/releases/latest">Latest release</a><a href="https://github.com/DinoCDX/discord-presence-manager">Source on GitHub</a><a href="https://github.com/DinoCDX/discord-presence-manager/blob/main/LICENSE">MIT License</a>
+  </nav>
 </div></footer>
-<script>
-addEventListener("scroll",function(){var h=document.documentElement;var m=h.scrollHeight-h.clientHeight;h.style.setProperty("--p",(m>0?h.scrollTop/m:0).toFixed(4));},{passive:true});
-</script>
+
+<script src="assets/home.js" defer></script>
 </body>
 </html>

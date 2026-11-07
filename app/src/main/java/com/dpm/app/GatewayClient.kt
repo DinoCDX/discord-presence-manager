@@ -42,7 +42,7 @@ object GatewayClient {
     private fun setSession(t: String?) {
         val wasActive = sessionToken != null
         sessionToken = t
-        storage?.let { Store.put(it, SESSION_KEY, t.orEmpty()) }
+        storage?.let { Shared.put(it, SESSION_KEY, t.orEmpty()) }
         if (wasActive != (t != null)) {
             if (t != null) Logs.add("headless session created") else Logs.add("headless session cleared")
         }
@@ -51,9 +51,9 @@ object GatewayClient {
     private fun cleanupStoredSession(bearer: String) {
         val s = storage ?: return
         if (sessionToken != null) return
-        val stored = Store.get(s, SESSION_KEY, "")
+        val stored = Shared.get(s, SESSION_KEY, "")
         if (stored.isEmpty()) return
-        Store.put(s, SESSION_KEY, "")
+        Shared.put(s, SESSION_KEY, "")
         Logs.add("deleting leftover headless session")
         scope.launch { deleteRemoteSession(bearer, stored) }
     }

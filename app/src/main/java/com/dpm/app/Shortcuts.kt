@@ -24,6 +24,7 @@ import androidx.core.content.ContextCompat
 object Toggle {
     const val ACTION = "com.dpm.app.TOGGLE"
     const val MODE_ACTION = "com.dpm.app.WIDGET_MODE"
+    const val PAUSE_ACTION = "com.dpm.app.WIDGET_PAUSE"
 
     fun flip(c: Context) {
         if (Store.token(c) == null) {
@@ -48,6 +49,14 @@ object Toggle {
 
     fun flipMode(c: Context) {
         Presence.setMode(c, if (Presence.mode(c) == "static") "dynamic" else "static")
+        PresenceService.kick()
+        Bus.bump()
+        refresh(c)
+    }
+
+    fun pause(c: Context) {
+        if (!Presence.running(c)) return
+        Presence.setPaused(c, !Presence.paused(c))
         PresenceService.kick()
         Bus.bump()
         refresh(c)
@@ -101,6 +110,7 @@ class ToggleReceiver : BroadcastReceiver() {
         when (intent.action) {
             Toggle.ACTION -> Toggle.flip(app)
             Toggle.MODE_ACTION -> Toggle.flipMode(app)
+            Toggle.PAUSE_ACTION -> Toggle.pause(app)
         }
     }
 }
@@ -174,9 +184,15 @@ class PresenceWidget : AppWidgetProvider() {
             v.setTextViewText(R.id.w_sub, subtitle(loggedOut, on, info, static, gate))
             v.setTextViewText(R.id.w_mode, if (static) "Static" else "Dynamic")
             v.setTextViewText(R.id.w_button, if (on) "Turn off" else "Turn on")
+            v.setTextViewText(R.id.w_pause, if (paused) "Resume" else "Pause")
+            v.setViewVisibility(R.id.w_pause, if (on) View.VISIBLE else View.GONE)
             if (large) bindPreview(c, v, info, static)
 
             val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            v.setOnClickPendingIntent(
+                R.id.w_pause,
+                PendingIntent.getBroadcast(c, 13, Intent(c, ToggleReceiver::class.java).setAction(Toggle.PAUSE_ACTION), flags)
+            )
             v.setOnClickPendingIntent(
                 R.id.w_button,
                 PendingIntent.getBroadcast(c, 10, Intent(c, ToggleReceiver::class.java).setAction(Toggle.ACTION), flags)

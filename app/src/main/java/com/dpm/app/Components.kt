@@ -1,5 +1,12 @@
 package com.dpm.app
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.runtime.remember
+import androidx.compose.ui.composed
+import androidx.compose.ui.graphics.graphicsLayer
+
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -79,7 +86,8 @@ fun ExpButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) {
-    Button(onClick = onClick, shapes = ButtonDefaults.shapes(), modifier = modifier, enabled = enabled, content = content)
+    val src = remember { MutableInteractionSource() }
+    Button(onClick = onClick, shapes = ButtonDefaults.shapes(), modifier = modifier.pressScale(src), enabled = enabled, interactionSource = src, content = content)
 }
 
 @Composable
@@ -89,7 +97,8 @@ fun ExpTonalButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) {
-    FilledTonalButton(onClick = onClick, shapes = ButtonDefaults.shapes(), modifier = modifier, enabled = enabled, content = content)
+    val src = remember { MutableInteractionSource() }
+    FilledTonalButton(onClick = onClick, shapes = ButtonDefaults.shapes(), modifier = modifier.pressScale(src), enabled = enabled, interactionSource = src, content = content)
 }
 
 @Composable
@@ -99,7 +108,8 @@ fun ExpOutlinedButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) {
-    OutlinedButton(onClick = onClick, shapes = ButtonDefaults.shapes(), modifier = modifier, enabled = enabled, content = content)
+    val src = remember { MutableInteractionSource() }
+    OutlinedButton(onClick = onClick, shapes = ButtonDefaults.shapes(), modifier = modifier.pressScale(src), enabled = enabled, interactionSource = src, content = content)
 }
 
 @Composable
@@ -109,7 +119,8 @@ fun ExpTextButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) {
-    TextButton(onClick = onClick, shapes = ButtonDefaults.shapes(), modifier = modifier, enabled = enabled, content = content)
+    val src = remember { MutableInteractionSource() }
+    TextButton(onClick = onClick, shapes = ButtonDefaults.shapes(), modifier = modifier.pressScale(src), enabled = enabled, interactionSource = src, content = content)
 }
 
 @Composable
@@ -352,3 +363,17 @@ fun StatusPill(up: Boolean, label: String, modifier: Modifier = Modifier) {
 val Gap14 = Arrangement.spacedBy(14.dp)
 
 val Gap12 = Arrangement.spacedBy(12.dp)
+
+/** Scales a control down slightly while it is pressed, so taps feel responsive. */
+fun Modifier.pressScale(source: MutableInteractionSource): Modifier = composed {
+    val pressed by source.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.96f else 1f,
+        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>(),
+        label = "press"
+    )
+    graphicsLayer {
+        scaleX = scale
+        scaleY = scale
+    }
+}

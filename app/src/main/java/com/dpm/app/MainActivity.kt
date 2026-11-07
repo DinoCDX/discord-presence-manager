@@ -1,5 +1,12 @@
 package com.dpm.app
 
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.ui.graphics.Color
+
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.fadeIn
 import android.content.Intent
@@ -14,6 +21,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.Alignment
@@ -32,6 +41,8 @@ import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.animation.Crossfade
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
@@ -43,24 +54,31 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     private lateinit var ui: UiState
 
     override fun onStart() {
         super.onStart()
-        Live.setVisible(true)
+        Live.setVisible(this, true)
     }
 
     override fun onStop() {
         super.onStop()
-        Live.setVisible(false)
+        Live.setVisible(this, false)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,6 +91,17 @@ class MainActivity : ComponentActivity() {
             return
         }
         Updater.autoCheck(applicationContext)
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    if (Bench.recording(this@MainActivity)) {
+                        withContext(Dispatchers.IO) { Bench.sample(this@MainActivity, app = true) }
+                    }
+                    delay(2_000L)
+                }
+            }
+        }
 
         setContent {
             DPMTheme(ui.themeMode, false) {
@@ -102,13 +131,15 @@ class MainActivity : ComponentActivity() {
     private fun Home() {
         val pager = rememberPagerState(pageCount = { 3 })
         val scope = rememberCoroutineScope()
+        val spatialFloat = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
         val tab = pager.currentPage
-        fun goTo(i: Int) { scope.launch { pager.animateScrollToPage(i) } }
+        fun goTo(i: Int) { scope.launch { pager.animateScrollToPage(i, animationSpec = spatialFloat) } }
         val appsList = rememberLazyListState()
         val presenceScroll = rememberScrollState()
         val settingsScroll = rememberScrollState()
         val titles = listOf("Presence", "Apps", "Settings")
         val imeOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+        val haptic = LocalHapticFeedback.current
 
         var conn by remember { mutableStateOf(GatewayClient.state) }
         DisposableEffect(Unit) {
@@ -119,46 +150,68 @@ class MainActivity : ComponentActivity() {
         val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
         val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
 
+        val snackbar = remember { SnackbarHostState() }
+        LaunchedEffect(Unit) {
+            Notes.flow.collect { snackbar.showSnackbar(it, duration = SnackbarDuration.Short) }
+        }
+
         Box(Modifier.fillMaxSize()) {
         Scaffold(
             topBar = {
-                Column(Modifier.statusBarsPadding().padding(start = 20.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)) {
-                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .statusBarsPadding()
+                        .padding(start = 20.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)
+                        .heightIn(min = 48.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Crossfade(targetState = tab, animationSpec = effects, label = "title") { i ->
                         Text(
-                            titles[tab],
+                            titles[i],
                             style = MaterialTheme.typography.headlineMediumEmphasized,
-                            maxLines = 1,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (tab == 0) {
-                            val up = conn.startsWith("Connected")
-                            StatusPill(up, Live.plain(conn), Modifier.widthIn(max = 200.dp))
-                        }
-                    }
-                    if (tab == 1) {
-                        Text(
-                            "Choose what Discord can show",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            maxLines = 1
                         )
                     }
                 }
             },
+            snackbarHost = {
+                SnackbarHost(snackbar) { data ->
+                    Snackbar(
+                        snackbarData = data,
+                        shape = MaterialTheme.shapes.large,
+                        containerColor = MaterialTheme.colorScheme.inverseSurface,
+                        contentColor = MaterialTheme.colorScheme.inverseOnSurface
+                    )
+                }
+            },
             bottomBar = {
                 AnimatedVisibility(visible = !imeOpen) {
-                    ShortNavigationBar {
-                        val items = listOf(
-                            "Presence" to R.drawable.ic_presence,
-                            "Apps" to R.drawable.ic_apps,
-                            "Settings" to R.drawable.ic_settings
-                        )
-                        items.forEachIndexed { i, (label, icon) ->
-                            ShortNavigationBarItem(
-                                selected = tab == i,
-                                onClick = { goTo(i) },
-                                icon = { Icon(painterResource(icon), null) },
-                                label = if (tab == i) ({ Text(label) }) else null
+                    // The surface also covers the system navigation inset, so content behind the bar never shows through.
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        shadowElevation = 6.dp
+                    ) {
+                        ShortNavigationBar(
+                            modifier = Modifier.navigationBarsPadding().height(60.dp),
+                            windowInsets = WindowInsets(0, 0, 0, 0),
+                            containerColor = Color.Transparent
+                        ) {
+                            val items = listOf(
+                                "Presence" to R.drawable.ic_presence,
+                                "Apps" to R.drawable.ic_apps,
+                                "Settings" to R.drawable.ic_settings
                             )
+                            items.forEachIndexed { i, (label, icon) ->
+                                ShortNavigationBarItem(
+                                    selected = tab == i,
+                                    onClick = {
+                                        if (tab != i) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        goTo(i)
+                                    },
+                                    icon = { Icon(painterResource(icon), contentDescription = label) },
+                                    label = null
+                                )
+                            }
                         }
                     }
                 }
@@ -178,7 +231,8 @@ class MainActivity : ComponentActivity() {
             HorizontalPager(
                 state = pager,
                 modifier = Modifier.padding(pad).consumeWindowInsets(pad).imePadding(),
-                beyondViewportPageCount = 0
+                flingBehavior = PagerDefaults.flingBehavior(state = pager, snapAnimationSpec = spatialFloat),
+                beyondViewportPageCount = 1
             ) { t ->
                 when (t) {
                     0 -> PresenceScreen(ui, openApps = { goTo(1) }, scroll = presenceScroll)

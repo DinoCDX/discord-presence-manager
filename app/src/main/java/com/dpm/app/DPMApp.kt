@@ -12,5 +12,8 @@ class DPMApp : Application() {
     override fun onCreate() {
         super.onCreate()
         ctx = applicationContext
+        Procs.appContext = applicationContext
+        Procs.inService = Application.getProcessName().endsWith(":presence")
+        if (!Procs.inService) Live.watch(this)
     }
 }
